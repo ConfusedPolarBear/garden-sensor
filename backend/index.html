@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body {
+                background-color: black;
+                color: white;
+            }
+
+            p, code {
+                font-size: larger;
+            }
+        </style>
+
+        <script>
+            setTimeout(() => {
+                window.location.reload()
+            }, 2000)
+        </script>
+    </head>
+    <body>
+        <p>Garden systems:</p>
+        {{ range $i, $s := .Systems }}
+            {{ with $s }}
+            <p>System <code>{{.Identifier}}:</code></p>
+            <div style="margin-left:1em">
+                <p>Last seen at {{ .LastSeen }}</p>
+                <p>Temperature: {{ .LastReading.Temperature }}</p>
+                <p>Humidity: {{ .LastReading.Humidity }}</p>
+            </div>
+            {{ end }}
+        {{ end }}
+    </body>
+</html>
