@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "backend/web"
+		},
+		{
+			"path": "backend"
+		},
+		{
+			"path": "firmware"
+		}
+	]
+}
