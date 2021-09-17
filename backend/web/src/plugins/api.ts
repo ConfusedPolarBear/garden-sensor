@@ -16,6 +16,6 @@ export default function api(
   where += url;
 
   // Send it
-  console.debug(`fetching ${where}`);
+  console.debug(`[api] fetching ${where}`);
   return fetch(where, options);
 }

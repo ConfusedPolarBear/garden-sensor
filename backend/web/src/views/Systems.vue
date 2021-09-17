@@ -1,7 +1,7 @@
 <template>
   <v-container>
     <p>Systems:</p>
-    <v-data-table :items="systems" :headers="headers">
+    <v-data-table :items="$store.state.systems" :headers="headers">
       <template v-slot:[`item.Identifier`]="{ item }">
         <code>{{ item.Identifier }}</code>
       </template>
@@ -29,10 +29,10 @@
 <script lang="ts">
 import Vue from "vue";
 import api from "@/plugins/api";
+import { MutationPayload } from "vuex";
 
 export default Vue.extend({
   name: "Systems",
-  props: [""],
   data() {
     return {
       headers: [
@@ -46,15 +46,23 @@ export default Vue.extend({
           value: "LastReading"
         }
       ],
-      systems: Array<any>()
+      systems: Array<unknown>()
     };
   },
   methods: {
     load(): void {
-      // TODO: add websockets and Vuex
-      api("/systems").then(async (r) => {
-        this.systems = await r.json();
-      });
+      // Load all initial systems.
+      api("/systems")
+
+      // Subscribe to the Vuex store for future updates.
+      this.$store.subscribe(this.onMutation);
+    },
+    onMutation(mutation: MutationPayload, state: any) {
+      if (mutation.type !== "register" && mutation.type !== "update") {
+        return;
+      }
+
+      this.systems = state.systems;
     },
     dataValid(lastSeen: string): boolean {
       return !lastSeen.startsWith("0001");
@@ -67,6 +75,11 @@ export default Vue.extend({
   },
   created() {
     this.load();
+
+    // Periodically force the page to update in order to keep the last seen timestamps fresh for all systems.
+    setInterval(() => {
+      this.$forceUpdate();
+    }, 60 * 1000);
   }
 });
 </script>

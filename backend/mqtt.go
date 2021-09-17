@@ -96,6 +96,8 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 	}
 
 	systems[client] = system
+
+	BroadcastWebsocketMessage("update", system)
 }
 
 // Subscribe to the provided MQTT topic or panic.
