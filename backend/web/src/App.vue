@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar app :color="getBarColor()" dark>
-      <v-icon v-if="connected" id="logo" large >mdi-leaf</v-icon>
+      <v-icon v-if="connected" id="logo" large>mdi-leaf</v-icon>
       <v-icon v-else-if="showConnectionError()" id="logo" large>
         mdi-leaf-off
       </v-icon>
@@ -67,7 +67,6 @@ export default Vue.extend({
         return;
       }
 
-      console.debug("connecting websocket");
       const ws = `${addr}/socket`.replace("http", "ws"); // protocol must be "ws" or "wss"
       console.debug(`[ws] opening websocket to ${ws}`);
 
