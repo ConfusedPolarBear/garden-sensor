@@ -4,12 +4,12 @@
       Welcome to Garden Management. Before you can get started, we need to know
       the address of your garden backend server.
     </p>
-    <v-form>
+    <v-form @submit.prevent="validateServer">
       <v-text-field v-model="server" label="API server" type="url" />
       <v-btn @click="validateServer" color="primary">Finish</v-btn>
     </v-form>
 
-    <v-snackbar v-model="snackbar.show" color="red" timeout="2000">
+    <v-snackbar v-model="snackbar.show" color="red" timeout="3000">
       <strong>{{ snackbar.text }}</strong>
     </v-snackbar>
   </v-container>
@@ -42,11 +42,19 @@ export default Vue.extend({
       }
       server += "/ping";
 
-      fetch(server).then((r) => {
+      fetch(server).then(async (r) => {
         console.debug(r);
 
         if (r.status != 204) {
-          this.showSnackbar("Invalid response from server");
+          // Test if the user entered the address of the web UI
+          const text = await r.text();
+          if (text.indexOf("<!-- garden web interface -->")) {
+            this.showSnackbar(
+              "Enter the address of the API server, not the web interface"
+            );
+          } else {
+            this.showSnackbar("Invalid response from server");
+          }
           return;
         }
 
