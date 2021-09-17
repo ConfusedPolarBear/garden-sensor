@@ -8,14 +8,20 @@
 
       <template v-slot:[`item.LastReading`]="{ item }">
         <div id="reading" v-if="dataValid(item.LastSeen)">
-          <v-icon>mdi-thermometer</v-icon>
-          <span>{{ item.LastReading.Temperature }} °C</span>
+          <div class="readingData">
+            <v-icon>mdi-thermometer</v-icon>
+            <span>{{ item.LastReading.Temperature }} °C</span>
+          </div>
 
-          <v-icon>mdi-water-percent</v-icon>
-          <span>{{ item.LastReading.Humidity }} %</span>
+          <div class="readingData">
+            <v-icon>mdi-water-percent</v-icon>
+            <span>{{ item.LastReading.Humidity }} %</span>
+          </div>
 
-          <v-icon>mdi-clock</v-icon>
-          <span>{{ age(item.LastSeen) }}</span>
+          <div class="readingData">
+            <v-icon>mdi-clock</v-icon>
+            <span>{{ age(item.LastSeen) }}</span>
+          </div>
         </div>
         <div id="reading" v-else>
           <v-icon>mdi-clock</v-icon>
@@ -88,5 +94,12 @@ export default Vue.extend({
 div#reading span {
   margin-left: 5px;
   margin-right: 1rem;
+}
+
+/* This ensures the reading icons aren't separated from the reading data point when wrapped on mobile */
+@media screen and (min-width: 1000px) {
+  div.readingData {
+    display: inline;
+  }
 }
 </style>
