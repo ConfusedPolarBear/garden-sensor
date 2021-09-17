@@ -9,5 +9,13 @@
 		{
 			"path": "firmware"
 		}
-	]
+	],
+	"extensions": {
+		"recommendations": [
+			"octref.vetur",
+			"dbaeumer.vscode-eslint",
+			"golang.go",
+			"esbenp.prettier-vscode"
+		]
+	}
 }
