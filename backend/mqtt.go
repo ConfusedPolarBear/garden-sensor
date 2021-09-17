@@ -54,7 +54,7 @@ func SetupMQTT() {
 // Handle an incoming MQTT message.
 func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 	topic := m.Topic()
-	payload := string(m.Payload())
+	payload := m.Payload()
 
 	// If this message was sent by a garden system, extract it's client id from the topic.
 	client := "SYSTEM"
@@ -75,9 +75,15 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 
 		// If this is the first time we've seen this system, insert a new entry into the system map
 		if _, okay := systems[id]; !okay {
+			var info GardenSystemInfo
+			if err := json.Unmarshal(payload, &info); err != nil {
+				logrus.Warnf("[mqtt] failed to unmarshal discovery message from %s: %s", id, err)
+			}
+
 			systems[id] = GardenSystem{
-				Identifier: id,
-				LastSeen:   time.Time{},
+				Identifier:   id,
+				Announcement: info,
+				LastSeen:     time.Time{},
 			}
 		}
 
@@ -90,7 +96,7 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 	system := systems[client]
 	system.LastSeen = time.Now()
 
-	if err := json.Unmarshal([]byte(payload), &system.LastReading); err != nil {
+	if err := json.Unmarshal(payload, &system.LastReading); err != nil {
 		logrus.Warnf("[mqtt] unable to unmarshal reading: %s\n", err)
 		return
 	}

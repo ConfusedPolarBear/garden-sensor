@@ -2,21 +2,9 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
-
-type GardenSystem struct {
-	Identifier  string
-	LastReading Reading
-	LastSeen    time.Time
-}
-
-type Reading struct {
-	Temperature float32
-	Humidity    float32
-}
 
 func main() {
 	setupLogrus()
