@@ -1,15 +1,16 @@
 <template>
   <v-app>
     <v-app-bar app :color="getBarColor()" dark>
-      <v-icon id="logo" large v-if="connected">mdi-leaf</v-icon>
-      <v-icon id="logo" large v-else-if="showConnectionError()">
+      <v-icon v-if="connected" id="logo" large >mdi-leaf</v-icon>
+      <v-icon v-else-if="showConnectionError()" id="logo" large>
         mdi-leaf-off
       </v-icon>
 
-      <h2>Garden Management</h2>
+      <h3 v-if="isMobile">Garden Management</h3>
+      <h2 v-else>Garden Management</h2>
 
       <div id="wsIndicator" v-if="!connected && showConnectionError()">
-        <h3 id="wsErrorText">Lost connection to server.</h3>
+        <h3 v-if="!isMobile" id="wsErrorText">Lost connection to server.</h3>
 
         <v-progress-circular
           :value="retryIn * 10"
@@ -98,6 +99,11 @@ export default Vue.extend({
     socketClosed() {
       console.debug("[ws] websocket closed");
       this.connected = false;
+    }
+  },
+  computed: {
+    isMobile(): boolean {
+      return this.$vuetify.breakpoint.mobile;
     }
   },
   created() {
