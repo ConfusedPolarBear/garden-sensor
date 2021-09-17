@@ -1,6 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <Streaming.h>
 #include <PubSubClient.h>
+#include "libraries/ArduinoJson.h"
 
 #include "secrets.h"
 
@@ -66,11 +67,9 @@ void setup()
 	mqtt.set_callback(callback);
 
 	// Subscribe to the MQTT topic "garden/module/00000000/cmnd/#" where the zeros are replaced with this chip's id.
-	baseTopic = "garden/module/";
-	baseTopic.concat(chipId);
+	baseTopic = "garden/module/" + chipId;
 
-	String topic = baseTopic;
-	topic.concat("/cmnd/#");
+	String topic = baseTopic + "/cmnd/#";
 
 	Serial << "Subscribing to MQTT topic " << topic << endl;
 	if (!mqtt.subscribe(topic)) {
@@ -79,19 +78,38 @@ void setup()
 
 	Serial << "Successfully subscribed" << endl;
 
-	// Publish a discovery message announcing this system's availability.
-	// The discovery message is sent to "garden/module/discovery/00000000".
-	publish("garden/module/discovery/" + chipId, "available", true);
+	/* Publish a discovery message announcing this system's availability, basic info, and capabilities.
+	 * The discovery message is sent to "garden/module/discovery/00000000".
+	 * For an example of how to work with ArduinoJSON, go here: https://arduinojson.org/v6/example/generator
+	*/
+	StaticJsonDocument<256> info;
+	info["System"]["RestartReason"] = ESP.getResetReason();
+	info["System"]["CoreVersion"] = ESP.getCoreVersion();
+	info["System"]["SdkVersion"] = ESP.getSdkVersion();
+	info["System"]["FlashSize"] = ESP.getFlashChipSize();
+	info["System"]["RealFlashSize"] = ESP.getFlashChipRealSize();
+
+	// TODO: dynamically populate the list of sensors
+	JsonArray sensors = info.createNestedArray("Sensors");
+	sensors.add("temperature");
+	sensors.add("humidity");
+
+	String strInfo;
+	serializeJson(info, strInfo);
+
+	publish("garden/module/discovery/" + chipId, strInfo, true);
 }
 
 void loop() {
-	// Send data to the broker formatted as JSON.
-	String data = F("{\"Temperature\":TEMP,\"Humidity\":HUMI}");
-	data.replace("TEMP", String(ESP.random()));
-	data.replace("HUMI", String(ESP.random()));
+	StaticJsonDocument<100> reading;
+	reading["Temperature"] = random(0, 50);
+	reading["Humidity"] = random(0, 100);
+
+	String strReading;
+	serializeJson(reading, strReading);
 
 	// Publish readings to "garden/module/00000000/data"
-	publish(baseTopic + "/tele/data", data);
+	publish(baseTopic + "/tele/data", strReading);
 	delay(publishDelay);
 }
 
@@ -112,18 +130,16 @@ bool publish(String topic, String data, bool retain) {
 
 // Publishes the result of running a command.
 void publishResult(String topic, String command, bool success, String msg) {
-	String json = F("{\"Success\":SUCCESS,\"Command\":\"COMMAND\",\"Message\":\"MESSAGE\"}");
-	
-	if (success) {
-		json.replace("SUCCESS", "true");
-	} else {
-		json.replace("SUCCESS", "false");
-	}
+	// TODO: check if msg.length >= 450ish and reset message to an error
+	StaticJsonDocument<512> result;
+	result["Success"] = success;
+	result["Command"] = command;
+	result["Message"] = msg;
 
-	json.replace("COMMAND", command);
-	json.replace("MESSAGE", msg);
+	String strResult;
+	serializeJson(result, strResult);
 
-	publish(topic, json);
+	publish(topic, strResult);
 }
 
 void callback(const MQTT::Publish& pub) {
