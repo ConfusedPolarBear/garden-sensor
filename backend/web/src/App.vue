@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar app color="primary" dark>
-      Garden Management
+      <span>Garden Management</span>
     </v-app-bar>
 
     <v-main>
@@ -14,10 +14,6 @@
 import Vue from "vue";
 
 export default Vue.extend({
-  name: "App",
-
-  data: () => ({
-    //
-  }),
+  name: "App"
 });
 </script>
