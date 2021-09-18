@@ -1,6 +1,6 @@
 #include <ESP8266WiFi.h>
-#include <Streaming.h>
 #include <PubSubClient.h>
+#include "libraries/Streaming.h"
 #include "libraries/ArduinoJson.h"
 
 #include "secrets.h"
