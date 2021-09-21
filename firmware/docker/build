@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+echo Compiling
+
+cd /firmware
+arduino compile -b esp8266:esp8266:generic -e
+
+echo Done
