@@ -7,4 +7,4 @@ set -e
 # Check that a path to a character device is the first argument
 [[ -c "$1" ]] || (echo "Usage: $0 SERIAL_DEVICE"; exit 1)
 
-docker run --rm --name firmware -v $PWD:/firmware -v /tmp/arduino:/tmp --device /dev/ttyUSB0:/dev/ttyUSB0 garden-firmware flash
+docker run --rm --name firmware -v $PWD:/firmware -v /tmp/arduino:/tmp --device "$1":/dev/ttyUSB0:rw garden-firmware flash
