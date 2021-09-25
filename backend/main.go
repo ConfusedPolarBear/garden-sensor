@@ -3,14 +3,17 @@ package main
 import (
 	"os"
 
+	"github.com/ConfusedPolarBear/garden/internal/api"
+	"github.com/ConfusedPolarBear/garden/internal/mqtt"
+
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	setupLogrus()
 
-	SetupMQTT()
-	SetupAPIServer()
+	mqtt.Setup()
+	api.StartServer()
 }
 
 func setupLogrus() {

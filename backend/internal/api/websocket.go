@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"container/list"
@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"regexp"
 	"syscall"
+
+	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -65,7 +67,7 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	// Send all systems for the first update
 	conn.WriteJSON(WebSocketMessage{
 		Type: "register",
-		Data: SystemMapToSlice(),
+		Data: util.SystemMapToSlice(),
 	})
 
 	wsClients.PushBack(conn)
@@ -104,5 +106,5 @@ func BroadcastWebsocketMessage(messageType string, data interface{}) {
 
 // Reports that a new garden system has joined the server
 func BroadcastNewClient() {
-	BroadcastWebsocketMessage("register", SystemMapToSlice())
+	BroadcastWebsocketMessage("register", util.SystemMapToSlice())
 }

@@ -1,13 +1,15 @@
-package main
+package api
 
 import (
 	"net/http"
+
+	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
 
-func SetupAPIServer() {
+func StartServer() {
 	bind := "0.0.0.0:8081"
 
 	r := mux.NewRouter()
@@ -41,5 +43,5 @@ func PingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSystems(w http.ResponseWriter, r *http.Request) {
-	w.Write(Marshal(SystemMapToSlice()))
+	w.Write(util.Marshal(util.SystemMapToSlice()))
 }

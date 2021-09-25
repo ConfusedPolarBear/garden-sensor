@@ -1,4 +1,4 @@
-package main
+package mqtt
 
 import (
 	"encoding/json"
@@ -6,22 +6,18 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/ConfusedPolarBear/garden/internal/api"
+	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 )
 
-var systems map[string]GardenSystem = make(map[string]GardenSystem)
-
-// Mutex used to guard access to the map of systems. This is because concurrent map reads and writes are illegal in Go.
-// While there is a dedicated sync.Map type, using a plain Mutex here is preferred (ref https://pkg.go.dev/sync#Map).
-var systemLock sync.Mutex
-
 var clientIdRe *regexp.Regexp = regexp.MustCompile("^garden/module/([a-f0-9]+)/")
 
-func SetupMQTT() {
+func Setup() {
 	// Get configuration from environment variables
 	host := os.Getenv("MQTT_HOST")
 	username := os.Getenv("MQTT_USERNAME")
@@ -66,34 +62,31 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 
 	// Handle discovery messages
 	if client == "SYSTEM" {
-		systemLock.Lock()
-		defer systemLock.Unlock()
-
 		// discovery message is garden/module/discovery/deadbeef
 		p := strings.Split(topic, "/")
 		id := p[len(p)-1]
 
-		// If this is the first time we've seen this system, insert a new entry into the system map
-		if _, okay := systems[id]; !okay {
-			var info GardenSystemInfo
-			if err := json.Unmarshal(payload, &info); err != nil {
-				logrus.Warnf("[mqtt] failed to unmarshal discovery message from %s: %s", id, err)
-			}
-
-			systems[id] = GardenSystem{
-				Identifier:   id,
-				Announcement: info,
-				LastSeen:     time.Time{},
-			}
+		var info util.GardenSystemInfo
+		if err := json.Unmarshal(payload, &info); err != nil {
+			logrus.Warnf("[mqtt] failed to unmarshal discovery message from %s: %s", id, err)
+			return
 		}
+
+		util.UpdateSystem(util.GardenSystem{
+			Identifier:   id,
+			Announcement: info,
+			LastSeen:     time.Time{},
+		})
 
 		return
 	}
 
-	systemLock.Lock()
-	defer systemLock.Unlock()
+	system, err := util.GetSystem(client)
+	if err != nil {
+		logrus.Warnf("[mqtt] unable to find system with id %s", client)
+		return
+	}
 
-	system := systems[client]
 	system.LastSeen = time.Now()
 
 	if err := json.Unmarshal(payload, &system.LastReading); err != nil {
@@ -101,9 +94,10 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 		return
 	}
 
-	systems[client] = system
+	// TODO: fix concurrency issues here
+	util.UpdateSystem(system)
 
-	BroadcastWebsocketMessage("update", system)
+	api.BroadcastWebsocketMessage("update", system)
 }
 
 // Subscribe to the provided MQTT topic or panic.
