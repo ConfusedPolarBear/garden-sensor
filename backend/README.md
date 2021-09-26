@@ -8,8 +8,5 @@
 
 ## Development
 
-* Set the following environmental variables:
-  * `MQTT_HOST`: MQTT broker address
-  * `MQTT_USERNAME`: MQTT username (if required)
-  * `MQTT_PASSWORD`: MQTT password (if required)
+* Copy `garden.sample.ini` to `garden.ini` and set appropiate values for your environment
 * Run `go build && ./garden`

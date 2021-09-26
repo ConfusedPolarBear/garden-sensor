@@ -3,12 +3,13 @@ package mqtt
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"net"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/ConfusedPolarBear/garden/internal/api"
+	"github.com/ConfusedPolarBear/garden/internal/config"
 	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -19,12 +20,18 @@ var clientIdRe *regexp.Regexp = regexp.MustCompile("^garden/module/([a-f0-9]+)/"
 
 func Setup() {
 	// Get configuration from environment variables
-	host := os.Getenv("MQTT_HOST")
-	username := os.Getenv("MQTT_USERNAME")
-	password := os.Getenv("MQTT_PASSWORD")
+	host := config.GetString("mqtt.host")
+	username := config.GetString("mqtt.username")
+	password := config.GetString("mqtt.password")
 
-	if host == "" || username == "" || password == "" {
-		panic("host, username, or password is invalid")
+	if host == "" {
+		panic("mqtt host is required")
+	}
+
+	if h, p, err := net.SplitHostPort(host); err != nil {
+		panic("mqtt host is malformed. required format is ADDRESS:PORT")
+	} else {
+		logrus.Debugf("[mqtt] will connect to broker %s on port %s", h, p)
 	}
 
 	// Setup local MQTT client options
@@ -33,15 +40,23 @@ func Setup() {
 		SetClientID("garden-backend").
 		SetConnectTimeout(5 * time.Second).
 		SetOrderMatters(false).
-		SetUsername(username).
-		SetPassword(password).
-		SetKeepAlive(10 * time.Second).
+		SetKeepAlive(30 * time.Second).
 		SetPingTimeout(2 * time.Second)
+
+	if username != "" {
+		logrus.Debug("[mqtt] connection will be authenticated")
+
+		opts.
+			SetUsername(username).
+			SetPassword(password)
+	} else {
+		logrus.Debug("[mqtt] connection will be unauthenticated")
+	}
 
 	// Connect to the MQTT broker
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+		panic(fmt.Errorf("failed to connect to MQTT broker: %s", token.Error()))
 	}
 
 	mustSubscribe(client, "garden/module/#", handleMqttMessage)
