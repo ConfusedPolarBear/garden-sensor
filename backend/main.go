@@ -14,7 +14,7 @@ func main() {
 	setupLogrus()
 
 	config.Load()
-	mqtt.Setup()
+	mqtt.Setup(true)
 	api.StartServer()
 }
 

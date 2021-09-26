@@ -17,8 +17,9 @@ import (
 )
 
 var clientIdRe *regexp.Regexp = regexp.MustCompile("^garden/module/([a-f0-9]+)/")
+var mqttClient mqtt.Client
 
-func Setup() {
+func Setup(isServer bool) {
 	// Get configuration from environment variables
 	host := config.GetString("mqtt.host")
 	username := config.GetString("mqtt.username")
@@ -34,10 +35,17 @@ func Setup() {
 		logrus.Debugf("[mqtt] will connect to broker %s on port %s", h, p)
 	}
 
+	clientId := "garden-backend"
+	if !isServer {
+		clientId = "123456"
+	}
+
+	logrus.Debugf("[mqtt] backend server mode: %t, using client id %s", isServer, clientId)
+
 	// Setup local MQTT client options
 	opts := mqtt.NewClientOptions().
 		AddBroker(fmt.Sprintf("tcp://%s", host)).
-		SetClientID("garden-backend").
+		SetClientID(clientId).
 		SetConnectTimeout(5 * time.Second).
 		SetOrderMatters(false).
 		SetKeepAlive(30 * time.Second).
@@ -54,12 +62,27 @@ func Setup() {
 	}
 
 	// Connect to the MQTT broker
-	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
+	mqttClient = mqtt.NewClient(opts)
+	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		panic(fmt.Errorf("failed to connect to MQTT broker: %s", token.Error()))
 	}
 
-	mustSubscribe(client, "garden/module/#", handleMqttMessage)
+	if isServer {
+		Subscribe("garden/module/#", handleMqttMessage)
+	}
+}
+
+// Publishes to the provided topic or panics.
+func Publish(topic, payload string) {
+	PublishAdvanced(topic, payload, 0, false)
+}
+
+func PublishAdvanced(topic, payload string, qos int, retain bool) {
+	if token := mqttClient.Publish(topic, byte(qos), retain, payload); token.WaitTimeout(2*time.Second) && token.Error() != nil {
+		panic(fmt.Errorf("failed to publish message to %s: %s", topic, token.Error()))
+	}
+
+	logrus.Debugf("[mqtt] published message to %s (l %d, q %d, r %t)", topic, len(payload), qos, retain)
 }
 
 // Handle an incoming MQTT message.
@@ -76,7 +99,7 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 	logrus.Debugf("[mqtt] Message from %s: %s: %s\n", client, topic, payload)
 
 	// Handle discovery messages
-	if client == "SYSTEM" {
+	if strings.Contains(topic, "/discovery") {
 		// discovery message is garden/module/discovery/deadbeef
 		p := strings.Split(topic, "/")
 		id := p[len(p)-1]
@@ -116,8 +139,10 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 }
 
 // Subscribe to the provided MQTT topic or panic.
-func mustSubscribe(client mqtt.Client, topic string, callback func(c mqtt.Client, m mqtt.Message)) {
-	if token := client.Subscribe(topic, 0, callback); token.Wait() && token.Error() != nil {
+func Subscribe(topic string, callback func(c mqtt.Client, m mqtt.Message)) {
+	logrus.Debugf("[mqtt] subscribing to topic %s", topic)
+
+	if token := mqttClient.Subscribe(topic, 0, callback); token.Wait() && token.Error() != nil {
 		panic(token.Error())
 	}
 }
