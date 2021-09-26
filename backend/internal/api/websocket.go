@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sync"
 	"syscall"
 
 	"github.com/ConfusedPolarBear/garden/internal/util"
@@ -21,6 +22,9 @@ type WebSocketMessage struct {
 
 // List of all connected websockets. A slice is not used here to allow for easy removal of stale sockets.
 var wsClients list.List
+
+// Concurrent writes to websockets are illegal
+var websocketLock sync.Mutex
 
 func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
@@ -74,6 +78,9 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func BroadcastWebsocketMessage(messageType string, data interface{}) {
+	websocketLock.Lock()
+	defer websocketLock.Unlock()
+
 	msg := WebSocketMessage{
 		Type: messageType,
 		Data: data,
