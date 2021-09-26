@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
 
-echo Compiling
-arduino compile -b esp8266:esp8266:generic -e
+# Check that the user is in the correct directory
+[[ -f firmware.ino ]] || (echo "Failed to find firmware in current directory"; exit 1)
 
-echo Done
-
+docker run --rm --name firmware -v $PWD:/firmware -v /tmp/arduino:/tmp garden-firmware build

@@ -18,7 +18,14 @@ This is the firmware for creating a garden sensor system. These instructions hav
 
 ## Developing
 
-* Copy `secrets.sample.h` to `secrets.h` and populate the strings with appropiate values for your environment.
-* Run `./build.sh` to compile the firmware. Compiled binaries are in `build/esp8266.esp8266.generic`.
-* Run `./flash.sh` to flash the newly compiled firmware onto a connected ESP8266 chip.
-* The serial port is configured at 115,200 bps 8N1
+### First steps
+1. Install Docker
+2. Add your user to the docker and dialout group with `sudo usermod -aG docker USERNAME && sudo usermod -aG dialout USERNAME`.
+    1. The `docker` and `dialout` groups grant your user permissions to access the Docker daemon and serial devices respectively.
+4. While inside the `firmware` directory, run `docker build . -t garden-firmware`
+5. Copy `secrets.sample.h` to `secrets.h` and populate the strings with appropiate values for your environment.
+
+### Development
+1. Run `./build.sh` to compile the firmware. Compiled binaries are in `build/esp8266.esp8266.generic`.
+2. Run `./flash.sh PATH_TO_SERIAL_ADAPTER` to flash the newly compiled firmware onto a connected ESP8266 chip.
+3. The serial port is configured at 115,200 bps 8N1
