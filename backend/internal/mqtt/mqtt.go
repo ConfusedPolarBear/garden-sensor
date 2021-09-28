@@ -100,6 +100,10 @@ func handleMqttMessage(c mqtt.Client, m mqtt.Message) {
 
 	// Handle discovery messages
 	if strings.Contains(topic, "/discovery") {
+		if len(payload) == 0 {
+			return
+		}
+
 		// discovery message is garden/module/discovery/deadbeef
 		p := strings.Split(topic, "/")
 		id := p[len(p)-1]

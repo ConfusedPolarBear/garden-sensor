@@ -1,21 +1,31 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"fmt"
 	"strings"
 	"time"
 
-	paho "github.com/eclipse/paho.mqtt.golang"
-
 	"github.com/ConfusedPolarBear/garden/internal/config"
 	"github.com/ConfusedPolarBear/garden/internal/mqtt"
+	"github.com/ConfusedPolarBear/garden/internal/util"
+
+	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 )
 
-// Emulates a garden sensor system for testing without physical hardware.
-
 var baseTopic string = "garden/module/656d75"
-var publishDelay float32 = 0.1
+var publishDelay float32 = 2
+
+// If all current system discovery messages should be removed.
+var flagClearSystems bool
+
+func init() {
+	flag.BoolVar(&flagClearSystems, "c", false, "If all garden discovery messages should be cleared")
+
+	flag.Parse()
+}
 
 func main() {
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -27,18 +37,11 @@ func main() {
 	config.Load()
 	mqtt.Setup(false)
 
+	mqtt.Subscribe("garden/module/discovery/+", parseDiscoveryMessage)
+	mqtt.Subscribe(baseTopic+"/cmnd/#", handleCommand)
+
 	discovery := `{"System":{"RestartReason":"External System","CoreVersion":"0.0.0","SdkVersion":"2.2.2-dev(38a443e)",` +
 		`"FlashSize":4194304,"RealFlashSize":4194304},"Sensors":["temperature","humidity"]}`
-
-	mqtt.Subscribe(baseTopic+"/cmnd/#", func(_ paho.Client, m paho.Message) {
-		command := m.Topic()
-		payload := string(m.Payload())
-
-		lastSlash := strings.LastIndex(command, "/") + 1
-		command = command[lastSlash:]
-
-		logrus.Debugf("[mqtt] got command %s with payload %s", command, payload)
-	})
 
 	mqtt.PublishAdvanced("garden/module/discovery/656d75", discovery, 0, true)
 
@@ -57,4 +60,42 @@ func main() {
 
 		time.Sleep(time.Duration(publishDelay) * time.Second)
 	}
+}
+
+func parseDiscoveryMessage(c paho.Client, m paho.Message) {
+	if len(m.Payload()) == 0 {
+		return
+	}
+
+	var system util.GardenSystemInfo
+
+	if err := json.Unmarshal(m.Payload(), &system); err != nil {
+		logrus.Warnf("[discovery] failed to unmarshal message from %s: %s", m.Topic(), err)
+		return
+	}
+
+	if !flagClearSystems {
+		return
+	}
+
+	mqtt.PublishAdvanced(m.Topic(), "", 0, true)
+}
+
+func handleCommand(_ paho.Client, m paho.Message) {
+	command := m.Topic()
+	payload := string(m.Payload())
+
+	command = getLastSlash(command)
+
+	logrus.Debugf("[mqtt] got command %s with payload %s", command, payload)
+}
+
+// Returns the last item in a slash separated string. Example: "a/b/c/d" will return "d".
+func getLastSlash(raw string) string {
+	if !strings.Contains(raw, "/") {
+		panic(fmt.Errorf("input \"%s\" does not contain any slashes", raw))
+	}
+
+	parts := strings.Split(raw, "/")
+	return parts[len(parts)-1]
 }
