@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"container/list"
@@ -6,7 +6,10 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sync"
 	"syscall"
+
+	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -19,6 +22,9 @@ type WebSocketMessage struct {
 
 // List of all connected websockets. A slice is not used here to allow for easy removal of stale sockets.
 var wsClients list.List
+
+// Concurrent writes to websockets are illegal
+var websocketLock sync.Mutex
 
 func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
@@ -65,13 +71,16 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	// Send all systems for the first update
 	conn.WriteJSON(WebSocketMessage{
 		Type: "register",
-		Data: SystemMapToSlice(),
+		Data: util.SystemMapToSlice(),
 	})
 
 	wsClients.PushBack(conn)
 }
 
 func BroadcastWebsocketMessage(messageType string, data interface{}) {
+	websocketLock.Lock()
+	defer websocketLock.Unlock()
+
 	msg := WebSocketMessage{
 		Type: messageType,
 		Data: data,
@@ -104,5 +113,5 @@ func BroadcastWebsocketMessage(messageType string, data interface{}) {
 
 // Reports that a new garden system has joined the server
 func BroadcastNewClient() {
-	BroadcastWebsocketMessage("register", SystemMapToSlice())
+	BroadcastWebsocketMessage("register", util.SystemMapToSlice())
 }

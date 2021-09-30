@@ -3,14 +3,19 @@ package main
 import (
 	"os"
 
+	"github.com/ConfusedPolarBear/garden/internal/api"
+	"github.com/ConfusedPolarBear/garden/internal/config"
+	"github.com/ConfusedPolarBear/garden/internal/mqtt"
+
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	setupLogrus()
 
-	SetupMQTT()
-	SetupAPIServer()
+	config.Load()
+	mqtt.Setup(true)
+	api.StartServer()
 }
 
 func setupLogrus() {
@@ -20,6 +25,6 @@ func setupLogrus() {
 
 	if os.Getenv("GARDEN_DEBUG") != "" {
 		logrus.SetLevel(logrus.DebugLevel)
-		logrus.Debug("[app] Enabled debug logging")
+		logrus.Debug("[app] enabled debug logging")
 	}
 }
