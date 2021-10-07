@@ -18,11 +18,13 @@ type GardenSystem struct {
 
 type GardenSystemInfo struct {
 	SystemInfo struct {
-		RestartReason string `json:"RestartReason"`
-		CoreVersion   string `json:"CoreVersion"`
-		SdkVersion    string `json:"SdkVersion"`
-		FlashSize     int    `json:"FlashSize"`
-		RealFlashSize int    `json:"RealFlashSize"`
+		RestartReason       string `json:"RestartReason"`
+		CoreVersion         string `json:"CoreVersion"`
+		SdkVersion          string `json:"SdkVersion"`
+		FlashSize           int    `json:"FlashSize"`
+		RealFlashSize       int    `json:"RealFlashSize"`
+		FilesystemUsedSize  int
+		FilesystemTotalSize int
 	} `json:"System"`
 	Sensors []string `json:"Sensors"`
 }

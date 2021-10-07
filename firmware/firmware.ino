@@ -112,6 +112,14 @@ void setup()
 	info["System"]["FlashSize"] = ESP.getFlashChipSize();
 	info["System"]["RealFlashSize"] = ESP.getFlashChipRealSize();
 
+	info["System"]["FilesystemUsedSize"] = 0;
+	info["System"]["FilesystemTotalSize"] = 0;
+	FSInfo fsInfo;
+	if (fs->GetInfo(&fsInfo)) {
+		info["System"]["FilesystemUsedSize"] = fsInfo.usedBytes;
+		info["System"]["FilesystemTotalSize"] = fsInfo.totalBytes;
+	}
+
 	// TODO: dynamically populate the list of sensors
 	JsonArray sensors = info.createNestedArray("Sensors");
 	sensors.add("temperature");
