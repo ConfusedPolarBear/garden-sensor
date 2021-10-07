@@ -29,6 +29,16 @@
         </div>
       </template>
     </v-data-table>
+
+    <v-btn
+      @click="$router.push('/configure')"
+      elevation="2"
+      fab
+      color="green"
+      style="position: relative; top: 5em; float: right"
+    >
+      <v-icon>mdi-plus</v-icon>
+    </v-btn>
   </v-container>
 </template>
 
