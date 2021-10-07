@@ -41,7 +41,7 @@ func main() {
 	mqtt.Subscribe(baseTopic+"/cmnd/#", handleCommand)
 
 	discovery := `{"System":{"RestartReason":"External System","CoreVersion":"0.0.0","SdkVersion":"2.2.2-dev(38a443e)",` +
-		`"FlashSize":4194304,"RealFlashSize":4194304},"Sensors":["temperature","humidity"]}`
+		`"FlashSize":4194304,"RealFlashSize":4194304,"IsEmulator":true},"Sensors":["temperature","humidity"]}`
 
 	mqtt.PublishAdvanced("garden/module/discovery/656d75", discovery, 0, true)
 
