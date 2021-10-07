@@ -22,6 +22,11 @@
             <v-icon>mdi-clock</v-icon>
             <span>{{ age(item.LastSeen) }}</span>
           </div>
+
+          <div class="readingData">
+            <v-icon>mdi-file-multiple</v-icon>
+            {{ fsInfo(item.Announcement.System) }}
+          </div>
         </div>
         <div id="reading" v-else>
           <v-icon>mdi-clock</v-icon>
@@ -87,6 +92,14 @@ export default Vue.extend({
       let diff = Number(new Date()) - Number(new Date(lastSeen));
       diff = Number(diff) / 1000;
       return `last seen ${diff.toFixed(0)} seconds ago`;
+    },
+    fsInfo(info: any): string {
+      const used = info.FilesystemUsedSize / 1024;
+      const total = info.FilesystemTotalSize / 1024;
+
+      const percent = ((used * 100) / total).toFixed(2);
+
+      return `${used}K (${percent}%) used out of ${total}K total`;
     }
   },
   created() {

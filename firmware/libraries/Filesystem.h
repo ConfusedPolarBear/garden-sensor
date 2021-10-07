@@ -29,6 +29,9 @@ class Filesystem {
         static void SetConfigured(bool flag);
 
         static bool Format();
+
+        // If true is returned, info will be filled with filesystem info.
+        static bool GetInfo(FSInfo* info);
 };
 
 Filesystem* Filesystem::_instance = 0;
@@ -93,4 +96,8 @@ void Filesystem::SetConfigured(bool flag) {
 
 bool Filesystem::Format() {
     return LittleFS.format();
+}
+
+bool Filesystem::GetInfo(FSInfo* info) {
+    return LittleFS.info(*info);
 }
