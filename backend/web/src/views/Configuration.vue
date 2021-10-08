@@ -34,12 +34,17 @@
         <span v-for="button in buttons" :key="button.text">
           <v-btn
             @click="button.action"
+            :disabled="button.dangerous && !enableDangerous"
             :color="button.color"
             style="margin-right: 5px"
           >
             {{ button.text }}
           </v-btn>
         </span>
+
+        <p v-if="!enableDangerous" style="margin-top: 0.5rem">
+          To enable dangerous buttons, hold the Control key.
+        </p>
       </div>
       <div v-else>
         <!-- Serial port connection -->
@@ -120,6 +125,7 @@ export default Vue.extend({
       ports: Array<unknown>(),
       text: "",
       command: "",
+      enableDangerous: false,
 
       // Default allowlist of vendor IDs to filter by.
       knownVendors: [
@@ -160,7 +166,8 @@ export default Vue.extend({
         {
           text: "Factory Reset",
           color: "red darken-2",
-          action: this.factoryReset
+          action: this.factoryReset,
+          dangerous: true
         }
       ],
 
@@ -175,7 +182,6 @@ export default Vue.extend({
     // High level serial stuff
     async listPorts() {
       try {
-        // eslint-ignore-next-line
         this.ports = await navigator.serial.getPorts();
       } catch (e) {
         console.error("unable to list ports", e);
@@ -184,12 +190,9 @@ export default Vue.extend({
     async requestPort() {
       const filters = Array<unknown>();
       if (this.useVendorList) {
-        console.debug("applying VID filters");
         for (const vid of this.knownVendors) {
           filters.push({ usbVendorId: vid });
         }
-      } else {
-        console.debug("not applying VID filters");
       }
 
       const port = await navigator.serial.requestPort({ filters: filters });
@@ -273,7 +276,6 @@ export default Vue.extend({
       this.writeToPort(`{"Command":"restart"}`);
     },
     factoryReset() {
-      // TODO: this needs a confirmation dialog
       this.writeToPort(`{"Command":"reset"}`);
     },
 
@@ -301,6 +303,11 @@ export default Vue.extend({
         show: true,
         text: text
       };
+    },
+
+    // Enable dangerous buttons only when the user is holding the Control key.
+    handleKey(e: KeyboardEvent) {
+      this.enableDangerous = e.ctrlKey;
     }
   },
   mounted() {
@@ -309,6 +316,9 @@ export default Vue.extend({
     }
 
     this.listPorts();
+
+    window.onkeydown = this.handleKey;
+    window.onkeyup = this.handleKey;
   },
   watch: {
     text() {
