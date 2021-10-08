@@ -33,7 +33,7 @@
         <!-- Toolbar -->
         <span v-for="button in buttons" :key="button.text">
           <v-btn
-            @click="button.action"
+            @click="doToolbarAction(button.action)"
             :disabled="button.dangerous && !enableDangerous"
             :color="button.color"
             style="margin-right: 5px"
@@ -146,27 +146,26 @@ export default Vue.extend({
         mqttPass: window.localStorage.getItem("mqttPass") || ""
       } as Dictionary<string>,
 
-      // TODO: fix the "errors" on the button action
       buttons: [
         {
           text: "Get Info",
           color: "green darken-2",
-          action: this.getInfo
+          action: "info"
         },
         {
           text: "Update Configuration",
           color: "blue darken-2",
-          action: this.updateConfig
+          action: "update"
         },
         {
           text: "Reboot",
           color: "orange darken-1",
-          action: this.restart
+          action: "restart"
         },
         {
           text: "Factory Reset",
           color: "red darken-2",
-          action: this.factoryReset,
+          action: "reset",
           dangerous: true
         }
       ],
@@ -265,6 +264,28 @@ export default Vue.extend({
     },
 
     // Toolbar buttons
+    doToolbarAction(name: string): void {
+      /* TODO: Ideally, the button's function would be in the button's definition and placed in the @click handler directly.
+       * However, if the code is written like that, Vuetur complains that the function doesn't exist on the type.
+       * Fixes for this horrible hack are welcome.
+       */
+
+      type ButtonFunction = () => void;
+
+      let actions = new Map<string, ButtonFunction>();
+      actions.set("info", this.getInfo);
+      actions.set("update", this.updateConfig);
+      actions.set("restart", this.restart);
+      actions.set("reset", this.factoryReset);
+
+      let action = actions.get(name);
+      if (!action) {
+        this.showSnackbar(`Unknown toolbar button action "${name}"`, "red");
+        return;
+      }
+
+      action();
+    },
     getInfo() {
       this.writeToPort(`{"Command":"info"}`);
     },
