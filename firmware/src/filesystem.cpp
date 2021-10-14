@@ -16,7 +16,15 @@ void Format() {
 void Mount() {
     LOGD("fs", "mounting filesystem");
 
-    if (!LittleFS.begin()) {
+    // ESP32 does not automatically format the filesystem if mounting fails unless told to with the first parameter.
+    // ESP8266 automatically formats the filesystem.
+    #ifdef ESP32
+    bool mountOk = LittleFS.begin(true);
+    #else
+    bool mountOk = LittleFS.begin();
+    #endif
+
+    if (!mountOk) {
         LOGF("fs", "unable to mount");
     }
 
@@ -36,6 +44,11 @@ void DeleteFile(String path) {
 }
 
 String ReadFile(String path) {
+    if (!FileExists(path)) {
+        LOGD("fs", "skipping opening (r) " + path);
+        return "";
+    }
+
     LOGD("fs", "opening (r) " + path);
     File f = LittleFS.open(path, "r");
 
@@ -53,8 +66,9 @@ void WriteFile(String path, String contents) {
     LOGD("fs", "opening (w) " + path);
     File f = LittleFS.open(path, "w");
 
+    #warning verify reinterpret_cast is safe here
     LOGD("fs", "writing " + String(contents.length()) + " bytes");
-    f.write(contents.c_str(), contents.length());
+    f.write(reinterpret_cast<const uint8_t*>(contents.c_str()), contents.length());
 
     LOGD("fs", "closing");
     f.close();

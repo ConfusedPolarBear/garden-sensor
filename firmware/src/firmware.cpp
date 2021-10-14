@@ -122,13 +122,21 @@ void loop() {
 String secureRandom() {
     String rand;
     for (int i = 0; i < 6; i++) {
-        rand += String(ESP.random(), HEX);
+        #ifdef ESP32
+        uint32_t random = esp_random();
+        #else
+        uint32_t random = ESP.random();
+        #endif
+    
+        rand += String(random, HEX);
     }
 
     return rand;
 }
 
 void processCommand(String command) {
+    bool changed = false;
+
     if (command.length() == 0) {
         return;
     }
@@ -181,7 +189,6 @@ void processCommand(String command) {
 
     #warning TODO: publish success to serial and network (MQTT or ESP-NOW).
 
-    bool changed = false;
     // No command was sent, check if the Wi-Fi settings need to be updated.
     if (data.containsKey("WifiSSID")) {
         WriteFile(FILE_WIFI_SSID, data["WifiSSID"]);
