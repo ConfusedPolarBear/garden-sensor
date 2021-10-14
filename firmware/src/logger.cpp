@@ -13,6 +13,10 @@ void LOGD(String tag, String message) {
     logInternal("D", tag, message);
 }
 
+void LOGW(String tag, String message) {
+    logInternal("W", tag, message);
+}
+
 void LOGF(String tag, String message) {
     logInternal("F", tag, message);
     ESP.restart();

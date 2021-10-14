@@ -8,7 +8,12 @@
     };
 #endif
 
-void InitializeFS() {
+void Format() {
+    LittleFS.format();
+    ESP.restart();
+}
+
+void Mount() {
     LOGD("fs", "mounting filesystem");
 
     if (!LittleFS.begin()) {

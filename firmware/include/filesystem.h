@@ -11,8 +11,11 @@
     };
 #endif
 
+// Formats the filesystem and restarts.
+void Format();
+
 // Mounts the filesystem or panics.
-void InitializeFS();
+void Mount();
 
 // Unmounts the filesystem.
 void Unmount();

@@ -16,7 +16,7 @@ void setup() {
 
     Serial << endl << endl;
 
-    InitializeFS();
+    Mount();
 
     // Check if the system has been configured
     bool configured = false;
@@ -29,7 +29,7 @@ void setup() {
     }
 
     Serial << "Press 's' to start setup" << endl;
-    delay(500);
+    delay(2000);
 
     // If the user wants to enter setup or if the system has not been configured, wait for configuration data
     if (Serial.read() == 's' || !configured) {
@@ -133,9 +133,102 @@ void processCommand(String command) {
         return;
     }
 
-    LOGD("command", "Processing command '" + command + "'");
+    command.replace("\r", "");
 
-    if (command == "scan") {
-        startNetworkScan();
+    // Try to deserialize the input as JSON
+    LOGD("cmnd", "deserializing '" + command + "'");
+    StaticJsonDocument<1024> data;
+    DeserializationError error = deserializeJson(data, command);
+
+    // Log success or failure
+    if (error) {
+        LOGW("cmnd", String("deserialization failed: ") + error.c_str());
+        return;
+    } else {
+        LOGD("cmnd", "deserialization successful");
+    }
+
+    // Check if a command was sent
+    if (data.containsKey("Command")) {
+        String command = data["Command"];
+        command.toLowerCase();
+
+        if (command == "scan") {
+            startNetworkScan();
+        }
+        
+        else if (command == "restart") {
+            Unmount();
+            ESP.restart();
+        }
+
+        else if (command == "reset") {
+            Format();
+        }
+
+        else if (command == "startap") {
+            startAccessPoint();
+        }
+
+        else if (command == "stopap") {
+            stopAccessPoint();
+        }
+
+        else {
+            LOGW("cmnd", "unknown command");
+        }
+    }
+
+    #warning TODO: publish success to serial and network (MQTT or ESP-NOW).
+
+    bool changed = false;
+    // No command was sent, check if the Wi-Fi settings need to be updated.
+    if (data.containsKey("WifiSSID")) {
+        WriteFile(FILE_WIFI_SSID, data["WifiSSID"]);
+        WriteFile(FILE_WIFI_PASS, data["WifiPassword"]);
+
+        /*
+        result["Success"] = true;
+		result["ConfiguredWifi"] = true;
+        */
+
+        LOGD("cmnd", "updated wifi settings");
+        changed = true;
+    }
+
+    if (data.containsKey("MQTTHost")) {
+		WriteFile(FILE_MQTT_HOST, data["MQTTHost"]);
+        LOGD("cmnd", "updated mqtt settings");
+
+		if (data.containsKey("MQTTUsername")) {
+			WriteFile(FILE_MQTT_USER, data["MQTTUsername"]);
+			WriteFile(FILE_MQTT_PASS, data["MQTTPassword"]);
+            LOGD("cmnd", "mqtt is authenticated");
+		}
+
+        /*
+		result["Success"] = true;
+		result["ConfiguredMQTT"] = true;
+		result["MQTTAuthenticated"] = fs->FileExists(FILE_MQTT_USER);
+        */
+       changed = true;
+	}
+
+    #warning: TODO: save mesh settings
+
+    if (!changed) {
+        return;
+    }
+
+    if (FileExists(FILE_WIFI_SSID) && FileExists(FILE_MQTT_HOST)) {
+        LOGD("cmnd", "wifi and mqtt are configured, setting flag");
+        SetConfigured(true);
+
+    } else if (FileExists(FILE_MESH_CONTROLLER)) {
+        LOGD("cmnd", "mesh is configured, setting flag");
+        SetConfigured(true);
+
+    } else {
+        LOGD("cmnd", "not configured");
     }
 }
