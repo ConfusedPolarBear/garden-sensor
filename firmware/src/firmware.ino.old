@@ -1,0 +1,592 @@
+#include <firmware.h>
+
+WiFiClient wclient;
+PubSubClient mqtt(wclient);
+
+#define FILE_MESH_CONTROLLER "/meshController"		// MAC address of controller
+#define FILE_MESH_KEY        "/meshKey"				// Mesh encryption key
+#define FILE_MESH_CHANNEL    "/meshChannel"			// Wi-Fi mesh channel to use
+
+/* Maximum number of ESP-NOW peers. This is a limit imposed by the ESP-NOW framework.
+ * Limits:
+ * 10 encrypted peers in station mode
+ * 6 encrypted peers in AP mode
+ * 20 unencrypted peers
+*/
+#define MAXIMUM_PEERS 6
+
+String meshController, meshKey;
+int meshChannel;
+
+String wifiSsid, wifiPassword, mqttAddress, mqttUsername, mqttPassword;
+String chipId;
+String baseTopic;
+
+// Sensor publish delay in ms.
+int publishDelay = 2500;
+bool isMeshController = true;
+
+void setup()
+{
+	Serial.begin(115200);
+
+	Serial << endl << "Press s within in the next 2 seconds to enter setup mode" << endl;
+	delay(2000);
+
+	// Go into setup mode if there is no configuration data saved or the user pressed 's'.
+	Filesystem* fs = Filesystem::Get();
+	if (!fs->IsConfigured() || Serial.read() == 's') {
+		Serial << "Entered Setup mode" << endl;
+
+		while(true) {
+			parseSerial();
+		}
+	}
+
+	// Load all configuration data
+	wifiSsid = fs->ReadFile("/wifiSSID");
+	wifiPassword = fs->ReadFile("/wifiPass");
+	mqttAddress = fs->ReadFile("/mqttAddr");
+	mqttUsername = fs->ReadFile("/mqttUser");
+	mqttPassword = fs->ReadFile("/mqttPass");
+
+	// If the mesh controller file exists, it is the MAC address of the controller to contact. Switch to client mode.
+	if (fs->FileExists(FILE_MESH_CONTROLLER)) {
+		isMeshController = false;
+
+		meshController = fs->ReadFile(FILE_MESH_CONTROLLER);
+		meshKey = fs->ReadFile(FILE_MESH_KEY);
+
+		int tempChannel = fs->ReadFile(FILE_MESH_CHANNEL).toInt();
+		if (tempChannel > 1 && tempChannel < 13) {
+			meshChannel = tempChannel;
+		} else {
+			meshChannel = 1;
+		}
+	}
+
+	// Display non-sensitive settings for validation
+	Serial << endl;
+	Serial << "Settings:" << endl;
+	if (isMeshController) {
+		Serial << "\tMesh mode:     controller" << endl;
+		Serial << "\tWi-Fi SSID:    " << wifiSsid << endl;
+		Serial << "\tMQTT broker:   " << mqttAddress << endl;
+		Serial << "\tMQTT username: " << mqttUsername << endl;
+	} else {
+		Serial << "\tMesh mode:     client" << endl;
+		Serial << "\tController:    " << meshController << endl;
+	}
+	Serial << "\tMesh channel:  " << meshChannel << endl;
+	Serial << endl;
+
+	chipId = WiFi.macAddress();
+
+	// Setup ESP-NOW
+	if (esp_now_init() != 0) {
+		Serial << "mesh error: unable to start mesh" << endl;
+		ESP.restart();
+	}
+
+	if (isMeshController) {
+		WiFi.mode(WIFI_AP_STA);
+
+		// Attempt to connect to the provided Wi-Fi network
+		WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+
+		Serial << "Connecting to Wi-Fi";
+		while (WiFi.status() != WL_CONNECTED)
+		{
+			delay(500);
+			Serial << ".";
+
+			parseSerial();
+		}
+		Serial << endl;
+
+		Serial << "IP address: " << WiFi.localIP() << endl;
+
+		if (esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER) != 0) {
+			Serial << "Unable to set client role" << endl;
+			ESP.restart();
+		}
+
+		setupMQTT();
+	} else {
+		Serial << "Configuring WiFi radio for mesh mode" << endl;
+
+		// Wi-Fi must be on (not necessarily connected) to use ESP-NOW
+		WiFi.mode(WIFI_AP);
+
+		// TODO: use encryption key
+
+		if (esp_now_set_self_role(ESP_NOW_ROLE_SLAVE) != 0) {
+			Serial << "Unable to set client role" << endl;
+			ESP.restart();
+		}
+	}
+
+	// This access point isn't accessible to clients, it's just to enable the Wi-Fi radio
+	WiFi.softAP("ESPNOW", "esp-now-mesh", meshChannel, 1, 0);
+
+	esp_now_register_send_cb(meshSendCallback);
+	esp_now_register_recv_cb(meshReceiveCallback);
+
+	if (isMeshController) {
+		for (int i = 0; i < MAXIMUM_PEERS; i++) {
+			const String clientFn = "/meshPeer" + String(i);
+			String mac = fs->ReadFile(clientFn);
+
+			if (mac.length() == 0) {
+				Serial << "Peer " << i << " is not defined, not adding it or any more peers" << endl;
+				break;
+			}
+
+			Serial << "Attempting to add peer " << i << " (" << mac << ")" << endl;
+
+			if (addMeshPeer(mac)) {
+				Serial << "Added peer " << i << endl;
+			} else {
+				Serial << "Failed to add peer " << i << endl;
+			}
+		}
+	} else {
+		Serial << "Adding controller " << meshController << " as peer" << endl;
+
+		if (!addMeshPeer(meshController) ) {
+			fatalError("failed to add controller");
+		}
+	}
+
+	/* Publish a discovery message announcing this system's availability, basic info, and capabilities.
+	 * The discovery message is sent to "garden/module/discovery/00000000".
+	 * For an example of how to work with ArduinoJSON, go here: https://arduinojson.org/v6/example/generator
+	*/
+	StaticJsonDocument<256> info;
+	info["System"]["RR"] = ESP.getResetReason();
+
+	// Version info
+	info["System"]["CoreVer"] = ESP.getCoreVersion();
+	info["System"]["SdkVer"] = ESP.getSdkVersion();
+
+	// Flash and filesystem info
+	info["System"]["FlSz"] = ESP.getFlashChipSize();
+	info["System"]["RFlSz"] = ESP.getFlashChipRealSize();
+	#warning Reenable sending FS info
+	/*
+	info["System"]["FSUS"] = 0;
+	info["System"]["FSTS"] = 0;
+	FSInfo fsInfo;
+	if (fs->GetInfo(&fsInfo)) {
+		info["System"]["FSUS"] = fsInfo.usedBytes;
+		info["System"]["FSTS"] = fsInfo.totalBytes;
+	}
+	*/
+
+	// Networking info
+	info["System"]["MAC"] = chipId;
+	info["System"]["MeshMAC"] = WiFi.softAPmacAddress();
+
+	// TODO: dynamically populate the list of sensors
+	JsonArray sensors = info.createNestedArray("Sensors");
+	sensors.add("dht22");
+
+	String strInfo;
+	serializeJson(info, strInfo);
+
+	publish("garden/module/discovery/" + chipId, strInfo, true);
+
+	// TODO: remove
+	if (!isMeshController) {
+		publishDelay = 500;
+	}
+}
+
+void loop() {
+	parseSerial();
+
+	if (!isMeshController) {
+		StaticJsonDocument<100> reading;
+		reading["Temperature"] = random(0, 50);
+		reading["Humidity"] = random(0, 100);
+
+		String strReading;
+		serializeJson(reading, strReading);
+
+		// Publish readings to "garden/module/00000000/data"
+		publish(baseTopic + "/tele/data", strReading);
+	}
+
+	delay(publishDelay);
+}
+
+void setupMQTT() {
+	// Setup the MQTT broker connection.
+	mqtt.set_server(mqttAddress);
+
+	Serial << "MQTT using authentication: ";
+	if (mqttUsername.length() != 0) {
+		Serial << "yes" << endl;
+	} else {
+		Serial << "no" << endl;
+	}
+
+	// Connect to the MQTT broker
+	if (!mqtt.connect(MQTT::Connect(chipId).set_auth(mqttUsername, mqttPassword))) {
+		fatalError("Failed to connect to MQTT broker");
+	}
+
+	Serial << "Successfully connected to broker" << endl;
+
+	// Set a callback that is called when a MQTT message arrives.
+	mqtt.set_callback(callback);
+
+	// Subscribe to the MQTT topic "garden/module/00000000/cmnd/#" where the zeros are replaced with this chip's id.
+	baseTopic = "garden/module/" + chipId;
+
+	String topic = baseTopic + "/cmnd/#";
+
+	Serial << "Subscribing to MQTT topic " << topic << endl;
+	if (!mqtt.subscribe(topic)) {
+		fatalError("Failed to subscribe to MQTT topic");
+	}
+
+	Serial << "Successfully subscribed" << endl;
+}
+
+// Parses a string MAC address and adds it as a peer
+bool addMeshPeer(String mac) {
+	uint8_t address[6];
+	int values[6];
+	int i;
+
+	if(sscanf(mac.c_str(), "%x:%x:%x:%x:%x:%x%*c",
+		&values[0], &values[1], &values[2], &values[3], &values[4], &values[5]) == 6) {
+		/* convert to uint8_t */
+		for(i = 0; i < 6; ++i) {
+			address[i] = (uint8_t) values[i];
+		}
+
+	} else {
+		return false;
+	}
+
+	// TODO: make channel modifiable
+	if (esp_now_add_peer(address, ESP_NOW_ROLE_SLAVE, meshChannel, NULL, 0) != 0) {
+		return false;
+	}
+
+	return true;
+}
+
+bool publish(String topic, String data, bool retain) {
+	// Log the published packet to the serial port as JSON
+	StaticJsonDocument<1024> log;
+	log["Command"] = "Publish";
+
+	// If this is a mesh client, use ESP-NOW instead of MQTT
+	if (!isMeshController) {
+		const int len = data.length();
+		uint8_t convData[len];
+		for (int i = 0; i < len; i++) {
+			convData[i] = data[i];
+		}
+
+		const bool success = esp_now_send(NULL, convData, len) == 0;
+
+		log["Command"] = "MeshPublish";
+		log["Data"] = data;
+		log["Success"] = success;
+
+		serializeJson(log, Serial);
+		Serial.println();
+
+		return success;
+	}
+
+	// Process any MQTT incoming packets if not connected through a mesh.
+	if (isMeshController) {
+		mqtt.loop();
+
+		// TODO: actually reflect the success of the publish
+		log["Success"] = true;
+		log["Topic"] = topic;
+		log["Retain"] = retain;
+	}
+
+	if (data.length() >= 512) {
+		log["Data"] = data.substring(0, 512);
+	} else {
+		log["Data"] = data;
+	}
+
+	serializeJson(log, Serial);
+	Serial.println();
+
+	if (!retain) {
+		return mqtt.publish(topic, data);
+	}
+
+	auto len = data.length();
+	uint8_t* u = (uint8_t*)data.c_str();
+	return mqtt.publish(topic, u, len, true);
+}
+
+// Publishes the result of running a command.
+void publishResult(String topic, String command, bool success, String msg) {
+	// TODO: check if msg.length >= 450ish and reset message to an error
+	StaticJsonDocument<512> result;
+	result["Success"] = success;
+	result["Command"] = command;
+	result["Message"] = msg;
+
+	String strResult;
+	serializeJson(result, strResult);
+
+	publish(topic, strResult);
+}
+
+void callback(const MQTT::Publish& pub) {
+	auto topic = pub.topic();
+	auto msg = pub.payload_string();
+
+	/* Extracts the command from the topic. Commands are at the end of the topic.
+	 * For example, the topic "garden/module/12345678/cmnd/restart" would parse to "restart".
+	 */
+	const String command = topic.substring(topic.lastIndexOf("/")+1, command.length());
+	const String result = baseTopic + "/result";
+
+	bool resultOk = false;
+	String resultMessage = "";
+
+	Serial << topic << " => " << msg << endl;
+
+	// Restarts the system.
+	if (command == "restart") {
+		if (msg != "1") {
+			publishResult(result, "restart", false, "Set payload to 1 to confirm restart");
+			return;
+		}
+
+		// Can't use resultMessage here because the ESP restarts before that happens
+		publishResult(result, "restart", true, "Restarting");
+
+		Filesystem::Get()->Unmount();
+
+		// Delay to give MQTT time to receive the message
+		delay(500);
+		ESP.restart();
+
+	// Adjusts publishing frequency.
+	} else if (command == "frequency") {
+		const int freq = msg.toInt();
+
+		if (freq < 1000) {
+			resultMessage = "Invalid publish duration";
+		} else {
+			publishDelay = freq;
+			resultOk = true;
+			resultMessage = "Successfully set publish duration";
+		}
+
+	} else {
+		resultMessage = "Invalid command";
+	}
+
+	publishResult(result, command, resultOk, resultMessage);
+}
+
+void meshReceiveCallback(uint8_t* mac, uint8_t* buf, uint8_t length) {
+	String payload;
+	Serial << endl << "ESP-NOW message received with " << length << " bytes of payload" << endl;
+
+	Serial.printf("Message from %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	for (int i = 0; i < static_cast<int>(length); ++i) {
+		const char b = static_cast<char>(buf[i]);
+		Serial << b;
+		payload += b;
+  	}
+	Serial.println();
+
+	if (!isMeshController) {
+		return;
+	}
+
+	String topic = "garden/module/discovery/000000";
+	// TODO: do better
+	if (length <= 100) {
+		topic = "garden/module/000000/tele/data";
+	}
+
+	publish(topic, payload);
+}
+
+void meshSendCallback(uint8_t* mac, uint8_t status) {
+	Serial << "Result of mesh send " << status << endl;
+}
+
+// Command: {"Command":"restart"}
+// Configuration: {"WifiSSID":"","WifiPassword":"","MQTTHost":"","MQTTUsername":"","MQTTPassword":""}
+void parseSerial() {
+	const long avail = Serial.available();
+	if (avail <= 0 || avail >= 1024) {
+		return;
+	}
+
+	Filesystem* fs = Filesystem::Get();
+
+	StaticJsonDocument<512> result;
+	result["Success"] = false;
+	result["Message"] = "";
+
+	Serial << "starting deserialization" << endl;
+	StaticJsonDocument<1024> data;
+	DeserializationError error = deserializeJson(data, Serial);
+	Serial << "deserialization complete" << endl;
+
+	if (error) {
+		Serial << "error" << endl;
+
+		result["Message"] = String("Failed to deserialize Serial input. ") + error.c_str();
+
+		serializeJson(result, Serial);
+		Serial.println();
+
+		return;
+	} else {
+		Serial << "no error" << endl;
+	}
+
+	// If a command is present, run it first.
+	if (data.containsKey("Command")) {
+		const String command = data["Command"];
+
+		// Restarts the device immediately
+		if (command == "restart") {
+			fs->Unmount();
+			ESP.restart();
+
+		// Basic info request from the web interface. Used to validate the chosen serial port.
+		} else if (command == "info") {
+			result["Success"] = true;
+			result["Message"] = "modular-garden-system";
+			result["ID"] = String(ESP.getChipId(), HEX);
+
+			serializeJson(result, Serial);
+			Serial.println();
+			return;
+
+		// Factory reset this device WITHOUT CONFIRMATION.
+		} else if (command == "reset") {
+			result["Success"] = true;
+			serializeJson(result, Serial);
+			Serial.println();
+
+			delay(500);
+
+			fs->Format();
+			ESP.restart();
+
+		} else {
+			result["Message"] = "Unknown command";
+			result["Command"] = command;
+
+			serializeJson(result, Serial);
+			Serial.println();
+			return;
+		}
+	}
+
+	Serial << "no command, checking keys" << endl;
+
+	// TODO: move all filenames into #define's
+
+	// Wi-Fi SSID must be present to configure Wi-Fi.
+	if (data.containsKey("WifiSSID")) {
+		Serial << "writing wifi ssid" << endl;
+		fs->WriteFile("/wifiSSID", data["WifiSSID"]);
+		Serial << "writing wifi password" << endl;
+		fs->WriteFile("/wifiPass", data["WifiPassword"]);
+		Serial << "writes complete, setting success" << endl;
+
+		result["Success"] = true;
+		Serial << "setting wifi flag" << endl;
+		result["ConfiguredWiFi"] = true;
+		Serial << "all flags done" << endl;
+	}
+
+	// If the MQTT host is present, configure MQTT.
+	if (data.containsKey("MQTTHost")) {
+		fs->WriteFile("/mqttAddr", data["MQTTHost"]);
+
+		if (data.containsKey("MQTTUsername")) {
+			fs->WriteFile("/mqttUser", data["MQTTUsername"]);
+			fs->WriteFile("/mqttPass", data["MQTTPassword"]);
+		}
+
+		result["Success"] = true;
+		result["ConfiguredMQTT"] = true;
+		result["MQTTAuthenticated"] = fs->FileExists("/mqttUser");
+	}
+
+	// If mesh controller key present, configure ESP-NOW mesh as client.
+	if (data.containsKey("MeshController")) {
+		fs->WriteFile(FILE_MESH_CONTROLLER, data["MeshController"]);
+		fs->WriteFile(FILE_MESH_KEY, data["MeshKey"]);
+
+		result["Success"] = true;
+		result["ConfiguredMesh"] = true;
+
+	} else if (data.containsKey("MeshPeer") && data.containsKey("MeshPeerIndex")) {
+		String addr = data["MeshPeer"];
+		String rawIndex = String(data["MeshPeerIndex"]);
+		int index = rawIndex.toInt();		// will return 0 if provided index is not an int
+
+		if (index < MAXIMUM_PEERS) {
+			fs->WriteFile("/meshPeer" + rawIndex, addr);
+
+			if (addMeshPeer(addr)) {
+				result["Success"] = true;
+				result["Message"] = "Added peer " + rawIndex;
+			} else {
+				result["Success"] = false;
+				result["Message"] = "Peer " + rawIndex + " stored but unable to add";
+			}
+		} else {
+			result["Success"] = false;
+			result["Message"] = "Invalid peer index";
+		}
+	}
+
+	if (data.containsKey("MeshChannel")) {
+		fs->WriteFile(FILE_MESH_CHANNEL, data["MeshChannel"]);
+
+		result["Success"] = true;
+		result["ConfiguredMeshChannel"] = true;
+	}
+
+	Serial << "checking if wifi exists" << endl;
+	/* Configuration is complete if either one of the following is true:
+	 * Wi-Fi and MQTT are configured
+	 * Mesh controller and encryption key are set
+	*/
+	if (fs->FileExists("/wifiSSID") && fs->FileExists("/mqttAddr")) {
+		fs->SetConfigured(true);
+
+	} else if (fs->FileExists(FILE_MESH_CONTROLLER) && fs->FileExists(FILE_MESH_KEY)) {
+		fs->SetConfigured(true);
+	}
+
+	Serial << "serializing json" << endl;
+	serializeJson(result, Serial);
+	Serial.println();
+}
+
+void fatalError(String msg) {
+	Serial << "Fatal error: " << msg << endl << "The system will now shutdown." << endl;
+	Serial.flush();
+
+	while(true) {
+		parseSerial();
+	}
+}
