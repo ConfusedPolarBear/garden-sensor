@@ -66,9 +66,8 @@ void WriteFile(String path, String contents) {
     LOGD("fs", "opening (w) " + path);
     File f = LittleFS.open(path, "w");
 
-    #warning verify reinterpret_cast is safe here
     LOGD("fs", "writing " + String(contents.length()) + " bytes");
-    f.write(reinterpret_cast<const uint8_t*>(contents.c_str()), contents.length());
+    f.write((const uint8_t*)(contents.c_str()), contents.length());
 
     LOGD("fs", "closing");
     f.close();
