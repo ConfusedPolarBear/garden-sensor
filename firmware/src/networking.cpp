@@ -11,15 +11,14 @@ void startAccessPoint() {
     // Since the PSK is randomized every time it is started, this would wear out the flash very quickly.
     WiFi.persistent(false);
 
-    // Remove the colons from the MAC address and lowercase it
-    String apSsid = "m-" + WiFi.macAddress();
+    String apSsid = "m-" + WiFi.softAPmacAddress();
     apSsid.replace(":", "");
     apSsid.toLowerCase();
-
+    
     String apPass = secureRandom();
 
     LOGD("ap", "Starting access point. SSID: " + apSsid + ", PSK: " + apPass);
-    WiFi.softAP(apSsid.c_str(), apPass.c_str(), 1, 0, 0);
+    WiFi.softAP(apSsid.c_str(), apPass.c_str(), 1, 1, 0);       // ssid, psk, channel, hidden, max connections
 }
 
 void stopAccessPoint() {
@@ -34,7 +33,7 @@ void startNetworkScan() {
     }
 
     LOGD("wifi", "Starting async network scan");
-    WiFi.scanNetworks(true);
+    WiFi.scanNetworks(true, true);
 }
 
 void processNetworkScan() {
@@ -46,9 +45,20 @@ void processNetworkScan() {
 
     LOGD("wifi", "found " + String(n) + " network(s)");
     for (int i = 0; i < n; i++) {
+        String ssid = WiFi.SSID(i);
+
+        bool hidden = false;
+        #ifdef ESP32
+        hidden = ssid.length() == 0;
+        #else
+        hidden = WiFi.isHidden(i);
+        #endif
+
         String msg = "Details for network " + String(i) + ": ";
-        msg += "SSID:" + WiFi.SSID(i) + ",";
-        msg += "RSSI:" + String(WiFi.RSSI(i));
+        msg += "SSID:" + ssid + ",";
+        msg += "RSSI:" + String(WiFi.RSSI(i)) + ",";
+        msg += "BSSID:" + WiFi.BSSIDstr(i) + ",";
+        msg += "HIDDEN:" + String(hidden);
     
         LOGD("wifi", msg);
     }
