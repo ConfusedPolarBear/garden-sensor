@@ -52,13 +52,10 @@ String ReadFile(String path) {
     LOGD("fs", "opening (r) " + path);
     File f = LittleFS.open(path, "r");
 
-    LOGD("fs", "reading contents");
     String contents = f.readString();
+    LOGD("fs", "read " + String(contents.length()) + " bytes");
 
-    LOGD("fs", "closing");
     f.close();
-
-    LOGD("fs", "returning from read");
     return contents;
 }
 

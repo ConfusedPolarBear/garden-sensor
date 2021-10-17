@@ -5,10 +5,7 @@ String mqttHost, mqttUser, mqttPass;
 
 bool isController;
 String meshController;
-std::vector<String> meshPeers;
 int meshChannel;
-
-String apSsid;
 
 void setup() {
     Serial.begin(115200);
@@ -17,6 +14,8 @@ void setup() {
     Serial << endl << endl;
 
     Mount();
+
+    Serial << "Mesh MAC address: " << WiFi.softAPmacAddress() << endl;
 
     // Check if the system has been configured
     bool configured = false;
@@ -50,17 +49,31 @@ void setup() {
     mqttHost = ReadFile(FILE_MQTT_HOST);
     mqttUser = ReadFile(FILE_MQTT_USER);
     mqttPass = ReadFile(FILE_MQTT_PASS);
+
     meshController = ReadFile(FILE_MESH_CONTROLLER);
-    #warning TODO: load mesh peers
-    #warning TODO: parse mesh channel
+
+    String rawChannel = ReadFile(FILE_MESH_CHANNEL);
+    if (rawChannel.length() > 0) {
+        meshChannel = rawChannel.toInt();
+
+        if (meshChannel <= 0) {
+            LOGW("mesh", "invalid mesh channel specified, defaulting to 1");
+            meshChannel = 1;
+        } else {
+            LOGD("mesh", "using mesh channel " + meshChannel);
+        }
+    } else {
+        LOGD("mesh", "using default channel of 1");
+        meshChannel = 1;
+    }
 
     Serial << "Settings:" << endl;
-    if (meshController == "") {
+    if (meshController.length() == 0) {
         isController = true;
         Serial << "\tMode:          controller" << endl;
         Serial << "\tWi-Fi SSID:    " << wifiSsid << endl;
-		Serial << "\tMQTT broker:   " << mqttHost << endl;
-		Serial << "\tMQTT username: " << mqttUser << endl;
+        Serial << "\tMQTT broker:   " << mqttHost << endl;
+        Serial << "\tMQTT username: " << mqttUser << endl;
     } else {
         isController = false;
         Serial << "\tMode:          client" << endl;
@@ -68,26 +81,31 @@ void setup() {
     }
 
     // If this is a controller, connect to dedicated Wi-Fi network. If this is a client, just setup an access point.
-    if (isController) {
-        WiFi.mode(WIFI_AP_STA);
-
-        // Attempt to connect to the provided Wi-Fi network
-		WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
-
-		Serial << "Connecting to Wi-Fi";
-		while (WiFi.status() != WL_CONNECTED)
-		{
-			Serial << ".";
-			processCommand(Serial.readStringUntil('\n'));
-		}
-		Serial << endl;
-
-		Serial << "IP address: " << WiFi.localIP() << endl;
+    WiFi.mode(WIFI_AP_STA);	// clients are put into ap_sta mode so they can join a network if needed for updates.
+    if (WiFi.setSleep(false)) {
+        LOGD("wifi", "wifi sleep disabled");
     } else {
-        WiFi.mode(WIFI_AP);
+        LOGW("wifi", "failed to disable sleep");
     }
 
-    startAccessPoint();
+    if (isController) {
+        // Attempt to connect to the provided Wi-Fi network
+        WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
+
+        Serial << "Connecting to Wi-Fi";
+        while (WiFi.status() != WL_CONNECTED)
+        {
+            Serial << ".";
+            processCommand(Serial.readStringUntil('\n'));
+        }
+        Serial << endl;
+
+        Serial << "IP address: " << WiFi.localIP() << endl;
+
+        connectToBroker(mqttHost, mqttUser, mqttPass);
+    }
+
+    startAccessPoint(meshChannel);
 
     /* Mesh details:
      * All nodes default to "client" mode (i.e. not the controller)
@@ -101,37 +119,45 @@ void setup() {
      *   Wait to be contacted by a nearby node
     */
 
-   // Initialize ESP-NOW
+    initializeMesh(isController, meshChannel);
+    if (!isController) {
+        addMeshPeer(meshController);
+    }
 
-   // Publish discovery message with system information and configured sensors
+    loadPeers();
+
+    sendDiscoveryMessage();
 }
 
+bool sentTest = false;
+long lastPublish = 0;
 void loop() {
     // Process any Serial commands
     processCommand(Serial.readStringUntil('\n'));
+
+    if (isController) {
+        connectToBroker(mqttHost, mqttUser, mqttPass);      // will only reconnect if needed
+        processMqtt();
+    }
 
     // If a Wi-Fi scan was requested, process the results
     processNetworkScan();
 
     // Publish sensor data
+    // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
+    //    when an ESP-NOW message arrives, the message won't be processed by the system.
+    if (millis() - lastPublish >= 2000) {
+        StaticJsonDocument<100> reading;
+        reading["Temperature"] = random(0, 50);
+        reading["Humidity"] = random(0, 100);
 
-    // TODO: if controller coordinates deep sleep, do that
-}
+        String strReading;
+        serializeJson(reading, strReading);
 
-// Returns a 192-bit secure random number
-String secureRandom() {
-    String rand;
-    for (int i = 0; i < 6; i++) {
-        #ifdef ESP32
-        uint32_t random = esp_random();
-        #else
-        uint32_t random = ESP.random();
-        #endif
-    
-        rand += String(random, HEX);
+        publish(strReading);
+
+        lastPublish = millis();
     }
-
-    return rand;
 }
 
 void processCommand(String command) {
@@ -145,7 +171,7 @@ void processCommand(String command) {
 
     // Try to deserialize the input as JSON
     LOGD("cmnd", "deserializing '" + command + "'");
-    StaticJsonDocument<1024> data;
+    DynamicJsonDocument data(3 * 1024);
     DeserializationError error = deserializeJson(data, command);
 
     // Log success or failure
@@ -174,14 +200,6 @@ void processCommand(String command) {
             Format();
         }
 
-        else if (command == "startap") {
-            startAccessPoint();
-        }
-
-        else if (command == "stopap") {
-            stopAccessPoint();
-        }
-
         else {
             LOGW("cmnd", "unknown command");
         }
@@ -196,7 +214,7 @@ void processCommand(String command) {
 
         /*
         result["Success"] = true;
-		result["ConfiguredWifi"] = true;
+        result["ConfiguredWifi"] = true;
         */
 
         LOGD("cmnd", "updated wifi settings");
@@ -204,24 +222,55 @@ void processCommand(String command) {
     }
 
     if (data.containsKey("MQTTHost")) {
-		WriteFile(FILE_MQTT_HOST, data["MQTTHost"]);
+        WriteFile(FILE_MQTT_HOST, data["MQTTHost"]);
         LOGD("cmnd", "updated mqtt settings");
 
-		if (data.containsKey("MQTTUsername")) {
-			WriteFile(FILE_MQTT_USER, data["MQTTUsername"]);
-			WriteFile(FILE_MQTT_PASS, data["MQTTPassword"]);
+        if (data.containsKey("MQTTUsername")) {
+            WriteFile(FILE_MQTT_USER, data["MQTTUsername"]);
+            WriteFile(FILE_MQTT_PASS, data["MQTTPassword"]);
             LOGD("cmnd", "mqtt is authenticated");
-		}
+        }
 
         /*
-		result["Success"] = true;
-		result["ConfiguredMQTT"] = true;
-		result["MQTTAuthenticated"] = fs->FileExists(FILE_MQTT_USER);
+        result["Success"] = true;
+        result["ConfiguredMQTT"] = true;
+        result["MQTTAuthenticated"] = fs->FileExists(FILE_MQTT_USER);
         */
        changed = true;
-	}
+    }
 
-    #warning: TODO: save mesh settings
+    if (data.containsKey("MeshController")) {
+        WriteFile(FILE_MESH_CONTROLLER, data["MeshController"]);
+        changed = true;
+    }
+
+    if (data.containsKey("MeshChannel")) {
+        WriteFile(FILE_MESH_CHANNEL, data["MeshChannel"]);
+        changed = true;
+    }
+
+    if (data.containsKey("MeshPeers")) {
+        String peers = data["MeshPeers"];
+        String current = ReadFile(FILE_MESH_PEERS);
+
+        if (peers.length() == 0) {
+            LOGD("mesh", "blanking known peers");
+            current = "";
+        } else {
+            LOGD("mesh", "appending to peer list");
+            current += peers;
+
+            if (!current.endsWith(",")) {
+                current += ",";
+            }
+        }
+
+        WriteFile(FILE_MESH_PEERS, current);
+
+        loadPeers();
+
+        changed = true;
+    }
 
     if (!changed) {
         return;
@@ -231,7 +280,7 @@ void processCommand(String command) {
         LOGD("cmnd", "wifi and mqtt are configured, setting flag");
         SetConfigured(true);
 
-    } else if (FileExists(FILE_MESH_CONTROLLER)) {
+    } else if (FileExists(FILE_MESH_CONTROLLER) || FileExists(FILE_MESH_PEERS)) {
         LOGD("cmnd", "mesh is configured, setting flag");
         SetConfigured(true);
 

@@ -8,6 +8,8 @@
 #include <espnow.h>         // this is dumb
 #endif
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include <Arduino.h>
@@ -30,6 +32,8 @@
 #define FILE_MESH_PEERS      "/meshPeers"
 #define FILE_MESH_CHANNEL    "/meshChannel"
 
+#warning TODO: migrate these declarations into separate header files
+
 // ========== Command handling ==========
 // Checks if the Serial connection has a command. If it does, handle it.
 void parseSerial();
@@ -38,8 +42,15 @@ void parseSerial();
 void processCommand(String command);
 
 // ========== Mesh ==========
+int loadPeers();
+bool isKnownPeer(String needle);
+bool publishMesh(String data, String topic);
+
+// Sends a preformatted 250 byte message.
+void publishMeshRaw(uint8_t* address, uint8_t* data);
+
 // Initializes ESP-NOW or restart.
-void initializeMesh();
+void initializeMesh(bool isController, int channel);
 
 // Adds ESP-NOW peer and returns result.
 bool addMeshPeer(String mac);
@@ -50,22 +61,30 @@ void meshSendCallback(uint8_t* mac, uint8_t status);
 // Callback when a mesh message has been received.
 void meshReceiveCallback(uint8_t* mac, uint8_t* buf, uint8_t len);
 
+// Broadcast a message to all paired nodes except one.
+void broadcastMesh(uint8_t* data, String exclude = "");
+
 // ========== MQTT ==========
 // Connect to the MQTT broker or restart.
-void setupMQTT();
+void connectToBroker(String host, String user, String pass);
 
 // Callback when a MQTT message has been received.
 void mqttReceiveCallback(const MQTT::Publish& pub);
 
+// Process MQTT messages.
+void processMqtt();
+
 // Publish a message over ESP-NOW or MQTT.
-bool publish(String data, bool isReading);
+bool publish(String data, String teleTopic = "data");
 
 // ========== Networking ==========
-void startAccessPoint();
+void startAccessPoint(int channel);
 void stopAccessPoint();
 void startNetworkScan();
 void processNetworkScan();
+void sendDiscoveryMessage();
 
-// ========== Miscellaneous ==========
-// Returns a secure randomly generated string.
-String secureRandom();
+// ========== Utility functions ==========
+uint32_t secureRandom();
+String secureRandomNonce();
+void memzero(void* ptr, size_t size);
