@@ -6,39 +6,62 @@
         <code>{{ item.Identifier }}</code>
       </template>
 
+      <template v-slot:[`item.Connection`]="{ item }">
+        <div class="readingData">
+          <tooltip :text="meshInfo(item, 'tooltip')">
+            <v-icon>
+              {{ meshInfo(item, "icon") }}
+            </v-icon>
+          </tooltip>
+
+          <span v-if="showSystemTypes" style="margin-left: 1rem">
+            <tooltip text="Virtual">
+              <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
+            </tooltip>
+
+            <tooltip text="Physical">
+              <v-icon v-if="!isEmulator(item)">mdi-memory</v-icon>
+            </tooltip>
+          </span>
+        </div>
+      </template>
+
       <template v-slot:[`item.LastReading`]="{ item }">
         <div id="reading" v-if="dataValid(item.LastSeen)">
-          <span v-if="showSystemTypes">
-            <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
-            <v-icon v-else>mdi-memory</v-icon>
-          </span>
-
           <div class="readingData">
-            <v-icon>mdi-thermometer</v-icon>
-            <span>{{ item.LastReading.Temperature }} °C</span>
+            <tooltip text="Temperature">
+              <v-icon>mdi-thermometer</v-icon>
+              <span>{{ item.LastReading.Temperature }} °C</span>
+            </tooltip>
           </div>
 
           <div class="readingData">
-            <v-icon>mdi-water-percent</v-icon>
-            <span>{{ item.LastReading.Humidity }} %</span>
+            <tooltip text="Humidity">
+              <v-icon>mdi-water-percent</v-icon>
+              <span>{{ item.LastReading.Humidity }} %</span>
+            </tooltip>
           </div>
-
-          <div class="readingData">
-            <v-icon>mdi-clock</v-icon>
-            <span>{{ age(item.LastSeen) }}</span>
-          </div>
-
-          <span v-if="!isEmulator(item)">
-            <div class="readingData">
-              <v-icon>mdi-file-multiple</v-icon>
-              {{ fsInfo(item.Announcement.System) }}
-            </div>
-          </span>
         </div>
         <div id="reading" v-else>
           <v-icon>mdi-clock</v-icon>
           <span>has not reported data yet</span>
         </div>
+      </template>
+
+      <template v-slot:[`item.LastSeen`]="{ item }">
+        <div class="readingData">
+          <v-icon style="margin-right: 0.5rem">mdi-clock</v-icon>
+          <span>{{ age(item.LastSeen) }}</span>
+        </div>
+      </template>
+
+      <template v-slot:[`item.Filesystem`]="{ item }">
+        <span v-if="!isEmulator(item)">
+          <div class="readingData">
+            <v-icon>mdi-file-multiple</v-icon>
+            {{ fsInfo(item.Announcement.System) }}
+          </div>
+        </span>
       </template>
     </v-data-table>
 
@@ -59,8 +82,11 @@ import Vue from "vue";
 import api from "@/plugins/api";
 import { MutationPayload } from "vuex";
 
+import Tooltip from "@/components/Tooltip.vue";
+
 export default Vue.extend({
   name: "Systems",
+  components: { Tooltip },
   data() {
     return {
       headers: [
@@ -70,8 +96,22 @@ export default Vue.extend({
           width: "10%"
         },
         {
+          text: "Connection",
+          value: "Connection",
+          width: "10%"
+        },
+        {
           text: "Last Reading",
-          value: "LastReading"
+          value: "LastReading",
+          width: "25%"
+        },
+        {
+          text: "Last Seen",
+          value: "LastSeen"
+        },
+        {
+          text: "Filesystem",
+          value: "Filesystem"
         }
       ],
       systems: Array<unknown>(),
@@ -129,6 +169,20 @@ export default Vue.extend({
       const percent = ((used * 100) / total).toFixed(2);
 
       return `${used}K (${percent}%) used out of ${total}K total`;
+    },
+    meshInfo(system: any, item: string): any {
+      const mesh = system.Announcement.System.IsMesh;
+
+      switch (item) {
+        case "tooltip":
+          return mesh ? "Mesh" : "MQTT";
+
+        case "icon":
+          return mesh ? "mdi-access-point" : "mdi-wifi";
+
+        default:
+          throw new Error(`unknown meshInfo item ${item}`);
+      }
     }
   },
   created() {
