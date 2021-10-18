@@ -91,3 +91,7 @@ bool publish(String data, String teleTopic) {
 
     return publishMesh(data, topic);
 }
+
+String getClientId() {
+    return clientId;
+}

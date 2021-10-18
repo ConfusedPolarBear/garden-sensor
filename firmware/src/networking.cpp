@@ -95,7 +95,7 @@ void processNetworkScan() {
 }
 
 #warning pass a string vector with discovered sensors
-void sendDiscoveryMessage() {
+void sendDiscoveryMessage(bool useMqtt) {
     StaticJsonDocument<250> info;
     
     // Store reset reason and sdk version. Since the ESP32 does not expose the sdk version, it's only sent by the ESP8266.
@@ -114,6 +114,8 @@ void sendDiscoveryMessage() {
         info["System"]["FU"] = fsInfo.usedBytes;
         info["System"]["FT"] = fsInfo.totalBytes;
     }
+
+    info["System"]["ME"] = !useMqtt;
 
     // TODO: populate the list of sensors from the sensors the backend said we have at programming time
     JsonArray sensors = info.createNestedArray("Sensors");

@@ -136,6 +136,10 @@ void broadcastMesh(uint8_t* data, String exclude) {
 bool publishMesh(String message, String topic) {
     // Message reassembly is done in the backend server
     String payload = topic + "\x01" + message;
+    if (topic.length() == 0) {
+        LOGD("mesh", "publishing payload without topic");
+        payload = message;
+    }
 
     float l = payload.length();
     uint32_t correlation = secureRandom();
@@ -242,22 +246,33 @@ void meshReceiveCallback(uint8_t* mac, uint8_t* buf, uint8_t length) {
     sprintf(strMacRaw, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     String strMac = String(strMacRaw);
 
-    // TODO: migrate to standard logging functions
-    Serial << "message from " << strMac << endl;
+    LOGD("mesh", "message from " + strMac);
 	for (int i = 0; i < static_cast<int>(length); ++i) {
 		const char b = static_cast<char>(buf[i]);
-		Serial << b;
 		payload += b;
   	}
-	Serial.println();
+    LOGD("mesh", "message payload is " + payload);
 
-    if (controller) {
-        // If this is the controller, send the packet over MQTT.
-	    publish(payload, "packet");
-    } else {
+    if (!controller) {
+        // If this is a command packet, handle it without rebroadcasting it. Commands are address to a destination by including
+        //    the text "dst-XXXXXXXXXXXX" in the payload where X's are replaced with the MQTT client ID.
+        String commandFlag = "dst-" + getClientId();
+        if (payload.indexOf(commandFlag) != -1) {
+            // This is a command packet addressed to us, handle it.
+            payload = payload.substring(6, payload.length());
+
+            LOGD("mesh", "handling command '" + payload + "'");
+            processCommand(payload);
+
+            return;
+        }
+
         // Since this is a client, rebroadcast the packet to all peers *except* the sending device.
         #warning validate that broadcast length is 250
         broadcastMesh(buf, strMac);
+    } else {
+        // If this is the controller, send the packet over MQTT.
+	    publish(payload, "packet");
     }
 }
 

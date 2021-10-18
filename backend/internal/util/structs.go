@@ -19,7 +19,10 @@ type GardenSystem struct {
 type GardenSystemInfo struct {
 	System struct {
 		// If this garden system is an actually an emulator. This field should not be sent by non-virtual systems.
-		IsEmulator    bool
+		IsEmulator bool
+
+		// If this system is connected through the mesh.
+		IsMesh        bool
 		RestartReason string
 
 		CoreVersion string

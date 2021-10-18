@@ -124,6 +124,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 	type miniInfo struct {
 		System struct {
 			IsEmulator          bool
+			IsMesh              bool   `json:"ME"`
 			RestartReason       string `json:"RR"`
 			CoreVersion         string `json:"CV"`
 			SdkVersion          string `json:"SV"`
@@ -236,9 +237,13 @@ func handleMqttMessage(client, topic string, payload []byte) {
 			// If this is the first packet, the payload has the topic prepended to it.
 			packetTopic := ""
 			if number == 1 {
-				parts := bytes.Split(packetPayload, []byte{0x01})
-				packetTopic = string(parts[0])
-				packetPayload = parts[1]
+				if bytes.Contains(packetPayload, []byte{0x01}) {
+					parts := bytes.Split(packetPayload, []byte{0x01})
+					packetTopic = string(parts[0])
+					packetPayload = parts[1]
+				} else {
+					logrus.Warn("[mqtt] first mesh packet does not have separator")
+				}
 			}
 
 			logrus.Tracef("[mqtt] got packet %s (%d/%d): %s", correlation, number, total, packetPayload)

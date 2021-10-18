@@ -77,12 +77,15 @@ void processMqtt();
 // Publish a message over ESP-NOW or MQTT.
 bool publish(String data, String teleTopic = "data");
 
+// Returns the MQTT client identifier
+String getClientId();
+
 // ========== Networking ==========
 void startAccessPoint(int channel);
 void stopAccessPoint();
 void startNetworkScan();
 void processNetworkScan();
-void sendDiscoveryMessage();
+void sendDiscoveryMessage(bool useMqtt);
 
 // ========== Utility functions ==========
 uint32_t secureRandom();

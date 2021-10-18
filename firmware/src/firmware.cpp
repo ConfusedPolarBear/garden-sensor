@@ -126,7 +126,7 @@ void setup() {
 
     loadPeers();
 
-    sendDiscoveryMessage();
+    sendDiscoveryMessage(isController);
 }
 
 bool sentTest = false;
@@ -198,6 +198,16 @@ void processCommand(String command) {
 
         else if (command == "reset") {
             Format();
+        }
+
+        else if (command == "publish") {
+            String payload = data["Payload"];
+            if (payload.length() == 0) {
+                LOGW("app", "the payload property is required");
+                return;
+            }
+
+            publishMesh(payload, "");
         }
 
         else {
