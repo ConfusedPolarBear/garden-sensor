@@ -126,6 +126,7 @@ void setup() {
 
     loadPeers();
 
+    initializeSensors();
     sendDiscoveryMessage(isController);
 }
 
@@ -146,13 +147,16 @@ void loop() {
     // Publish sensor data
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
-    if (millis() - lastPublish >= 2000) {
-        StaticJsonDocument<100> reading;
-        reading["Temperature"] = random(0, 50);
-        reading["Humidity"] = random(0, 100);
+    if (millis() - lastPublish >= 10 * 1000) {
+        sensorData reading = getSensorData();
+
+        StaticJsonDocument<100> json;
+        json["Error"] = reading.error;
+        json["Temperature"] = reading.temperature;
+        json["Humidity"] = reading.humidity;
 
         String strReading;
-        serializeJson(reading, strReading);
+        serializeJson(json, strReading);
 
         publish(strReading);
 

@@ -117,7 +117,7 @@ void sendDiscoveryMessage(bool useMqtt) {
 
     info["System"]["ME"] = !useMqtt;
 
-    // TODO: populate the list of sensors from the sensors the backend said we have at programming time
+    #warning TODO: populate the list of sensors from the sensors the backend said we have at programming time
     JsonArray sensors = info.createNestedArray("Sensors");
     sensors.add("temperature");
     sensors.add("humidity");

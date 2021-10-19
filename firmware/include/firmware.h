@@ -20,6 +20,8 @@
 #include <PubSubClient.h>
 #include <Streaming.h>
 
+#include <sensors.h>
+
 // ========== Paths to configuration files ==========
 #define FILE_WIFI_SSID "/wifiSSID"
 #define FILE_WIFI_PASS "/wifiPass"

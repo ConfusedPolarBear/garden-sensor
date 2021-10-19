@@ -35,6 +35,7 @@ type GardenSystemInfo struct {
 }
 
 type Reading struct {
+	Error       bool
 	Temperature float32
 	Humidity    float32
 }
