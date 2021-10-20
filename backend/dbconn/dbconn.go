@@ -2,6 +2,7 @@ package dbconn
 
 import
 (
+"time"
 "gorm.io/gorm"
 "gorm.io/driver/sqlite"
 "github.com/ConfusedPolarBear/garden/internal/util"
@@ -13,6 +14,7 @@ func Open() (db *gorm.DB, err error) {
 }
 
 func CreateReading(db *gorm.DB, reading util.Reading) error {
+	reading.Time = time.Now()
 	if err := db.Create(&reading).Error; err != nil {
 		return err
 	}
@@ -20,6 +22,7 @@ func CreateReading(db *gorm.DB, reading util.Reading) error {
 }
 
 func CreateGardenSystem(db *gorm.DB, gardenSystem util.GardenSystem) error {
+	gardenSystem.LastSeen = time.Now()
 	if err := db.Create(&gardenSystem).Error; err != nil {
 		return err
 	}
@@ -27,10 +30,15 @@ func CreateGardenSystem(db *gorm.DB, gardenSystem util.GardenSystem) error {
 }
 
 func GetGardenSystem(db *gorm.DB, systemIdentifier string) (util.GardenSystem, error) {
+	var err error
 	system := util.GardenSystem{
 		Identifier: systemIdentifier,
 	}
-	if err := db.Where(system).First(&system).Error; err != nil {
+	if err = db.Where(system).First(&system).Error; err != nil {
+		panic(err)
+	}
+	system.Announcement, err = GetGardenSystemInfo(db, systemIdentifier)
+	if err != nil {
 		panic(err)
 	}
 	return system, nil

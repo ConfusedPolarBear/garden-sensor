@@ -69,10 +69,10 @@ func TestDB(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	fmt.Printf("%+v\n",reading)
+	//fmt.Printf("%+v\n",reading)
 
 	testGardenSystemInfo := util.GardenSystemInfo{
-		Identifier: "TEST69",
+		Identifier: "Test ID 123456",
 		RestartReason: "TEST456",
 		CoreVersion: "TEST789",
 		SdkVersion:  "TEST123",
@@ -84,26 +84,27 @@ func TestDB(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	retrievedStruct, err := dbconn.GetGardenSystemInfo(DB, "TEST69")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Retrieved struct:")
-	fmt.Printf("%+v\n", retrievedStruct)
+	// retrievedStruct, err := dbconn.GetGardenSystemInfo(DB, "Test ID 123456")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	//fmt.Println("Retrieved struct:")
+	//fmt.Printf("%+v\n", retrievedStruct)
 
 
 	testGardenSystem := util.GardenSystem{
 		Identifier: "Test ID 123456",
+		Announcement: testGardenSystemInfo,
 	}
 
 	if err := dbconn.CreateGardenSystem(DB, testGardenSystem); err != nil {
 		panic(err)
 	}
 
-	retrievedStruct, err := dbconn.GetGardenSystem(DB, "Test ID 123456")
+	retrievedStruct1, err := dbconn.GetGardenSystem(DB, "Test ID 123456")
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("Retrieved struct:")
-	fmt.Printf("%+v\n", retrievedStruct)
+	fmt.Printf("%+v\n", retrievedStruct1)
 }
