@@ -104,7 +104,9 @@
         been blurred to protect your credentials. Hovering with the mouse will
         remove the blur.
       </p>
-      <pre id="configJson">{{ this.serializeConfig(true) }}</pre>
+      <code id="configJson">
+        {{ this.serializeConfig() }}
+      </code>
     </v-form>
 
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
@@ -242,7 +244,7 @@ export default Vue.extend({
 
       this.showSnackbar("Configuration saved locally");
     },
-    serializeConfig(prettify = false): string {
+    serializeConfig(): string {
       let serialized = {} as any;
 
       // Only update the Wi-Fi data if both the SSID and PSK are present.
@@ -260,7 +262,7 @@ export default Vue.extend({
         }
       }
 
-      return JSON.stringify(serialized, null, prettify ? 4 : 0);
+      return JSON.stringify(serialized, null, 2);
     },
 
     // Toolbar buttons
@@ -362,6 +364,7 @@ export default Vue.extend({
 #configJson {
   color: transparent;
   text-shadow: 0 0 10px white;
+  overflow-wrap: break-word; 
 }
 
 #configJson:hover {

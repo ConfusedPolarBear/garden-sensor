@@ -27,18 +27,25 @@
       </template>
 
       <template v-slot:[`item.LastReading`]="{ item }">
+        <tooltip
+          v-if="item.LastReading.Error"
+          text="Error retrieving sensor data"
+        >
+          <v-icon color="red">mdi-alert</v-icon>
+        </tooltip>
+
         <div id="reading" v-if="dataValid(item.LastSeen)">
           <div class="readingData">
             <tooltip text="Temperature">
               <v-icon>mdi-thermometer</v-icon>
-              <span>{{ item.LastReading.Temperature }} °C</span>
+              <span>{{ temp(item.LastReading.Temperature) }} °C</span>
             </tooltip>
           </div>
 
           <div class="readingData">
             <tooltip text="Humidity">
               <v-icon>mdi-water-percent</v-icon>
-              <span>{{ item.LastReading.Humidity }} %</span>
+              <span>{{ item.LastReading.Humidity.toFixed(2) }} %</span>
             </tooltip>
           </div>
         </div>
@@ -183,6 +190,16 @@ export default Vue.extend({
         default:
           throw new Error(`unknown meshInfo item ${item}`);
       }
+    },
+    temp(reading: number): string {
+      // TODO: expose this as a slider in a settings page somewhere
+      const units = window.localStorage.getItem("units") ?? "C";
+
+      if (units === "F") {
+        reading = (9 / 5) * reading + 32;
+      }
+
+      return `${reading.toFixed(2)} °${units}`;
     }
   },
   created() {
