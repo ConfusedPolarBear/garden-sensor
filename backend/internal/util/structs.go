@@ -11,7 +11,7 @@ type GardenSystem struct {
 	gorm.Model
 	Identifier   string `json:"Identifier"`
 	Announcement GardenSystemInfo`gorm:"foreignKey:Identifier"`
-	Readings []Reading`gorm:"foreignKey:Identifier"`
+	LastReading Reading`gorm:"foreignKey:Identifier"`
 	LastSeen    time.Time
 }
 

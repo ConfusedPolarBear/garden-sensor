@@ -18,4 +18,24 @@ func CreateReading(db *gorm.DB, reading util.Reading) error {
 	}
 	return nil
 }
+
+func CreateGardenSystem(db *gorm.DB, gardenSystem util.GardenSystemInfo) error {
+	if err := db.Create(&gardenSystem).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetGardenSystem(db *gorm.DB, systemIdentifier string) (util.GardenSystemInfo, error) {
+	systemInfo := util.GardenSystemInfo{
+		Identifier: systemIdentifier,
+	}
+
+	//result := db.Where(systemInfo)
+	//fmt.Println(result)
+	if err := db.Where(systemInfo).First(&systemInfo).Error; err != nil {
+		panic(err)
+	}
+	return systemInfo, nil
+}
  
