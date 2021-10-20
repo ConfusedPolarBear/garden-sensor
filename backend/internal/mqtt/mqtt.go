@@ -286,11 +286,24 @@ func handleMqttMessage(client, topic string, payload []byte) {
 
 			// Reassemble the payload and handle it
 			var meshPayload []byte
+			var expectedNumber uint16 = 0
+			handle := true
 			for _, packet := range packets {
+				if expectedNumber++; expectedNumber != packet.Number {
+					logrus.Warnf("[mqtt] encountered unexpected packet while reassembling packet chunks (expected %d, got %d",
+						expectedNumber,
+						packet.Number)
+
+					handle = false
+					break
+				}
+
 				meshPayload = append(meshPayload, packet.Payload...)
 			}
 
-			handleMqttMessage(clientId, first.Topic, meshPayload)
+			if handle {
+				handleMqttMessage(clientId, first.Topic, meshPayload)
+			}
 
 		} else {
 			logrus.Warnf("[mqtt] unhandled MQTT topic: %s", topic)
