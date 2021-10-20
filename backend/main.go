@@ -42,4 +42,5 @@ func setupLogrus() {
 func migrateTables(db *gorm.DB) {
 	db.AutoMigrate(&util.Reading{})
 	db.AutoMigrate(&util.GardenSystemInfo{})
+	db.AutoMigrate(&util.GardenSystem{})
 }

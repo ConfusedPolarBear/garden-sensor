@@ -54,24 +54,24 @@ func GetSystems(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestDB(w http.ResponseWriter, r *http.Request) {
-	// testReading := util.Reading{
-	// 	Temperature: 123,
-	// 	Humidity: 456,
-	// }
-	// if err := dbconn.CreateReading(DB, testReading); err != nil {
-	// 	panic(err)
-	// }
-	// reading := &util.Reading{
-	// 	Temperature: 123,
-	// }
+	testReading := util.Reading{
+		Temperature: 123,
+		Humidity: 456,
+	}
+	if err := dbconn.CreateReading(DB, testReading); err != nil {
+		panic(err)
+	}
+	reading := &util.Reading{
+		Temperature: 123,
+	}
 
-	// if err := DB.Where(reading).First(reading).Error; err != nil {
-	// 	panic(err)
-	// }
+	if err := DB.Where(reading).First(reading).Error; err != nil {
+		panic(err)
+	}
 
-	// fmt.Printf("%+v\n",reading)
+	fmt.Printf("%+v\n",reading)
 
-	testGardenSystem := util.GardenSystemInfo{
+	testGardenSystemInfo := util.GardenSystemInfo{
 		Identifier: "TEST69",
 		RestartReason: "TEST456",
 		CoreVersion: "TEST789",
@@ -80,14 +80,30 @@ func TestDB(w http.ResponseWriter, r *http.Request) {
 		RealFlashSize: 3942,
 	}
 
-	if err := dbconn.CreateGardenSystem(DB, testGardenSystem); err != nil {
+	if err := dbconn.CreateGardenSystemInfo(DB, testGardenSystemInfo); err != nil {
 		panic(err)
 	}
 
-	retrievedStruct, err := dbconn.GetGardenSystem(DB, "TEST69")
+	retrievedStruct, err := dbconn.GetGardenSystemInfo(DB, "TEST69")
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("Retrieved struct:")
-	fmt.Printf("%+v\n",retrievedStruct)
+	fmt.Printf("%+v\n", retrievedStruct)
+
+
+	testGardenSystem := util.GardenSystem{
+		Identifier: "Test ID 123456",
+	}
+
+	if err := dbconn.CreateGardenSystem(DB, testGardenSystem); err != nil {
+		panic(err)
+	}
+
+	retrievedStruct, err := dbconn.GetGardenSystem(DB, "Test ID 123456")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Retrieved struct:")
+	fmt.Printf("%+v\n", retrievedStruct)
 }

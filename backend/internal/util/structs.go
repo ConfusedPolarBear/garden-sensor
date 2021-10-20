@@ -23,7 +23,7 @@ type GardenSystemInfo struct {
 	SdkVersion    string `json:"SdkVersion"`
 	FlashSize     int    `json:"FlashSize"`
 	RealFlashSize int    `json:"RealFlashSize"`
-	//Sensors []string `json:"Sensors"` TODO add this to the model
+	//Sensors []*string `json:"Sensors"`
 }
 
 type Reading struct {
