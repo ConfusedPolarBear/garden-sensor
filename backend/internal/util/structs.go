@@ -9,17 +9,15 @@ import (
 
 type GardenSystem struct {
 	gorm.Model
-	Identifier   string
-	Announcement GardenSystemInfo
-
-	// TODO: track alerts per system. possible alerts: flash size mismatch, temperature/humidity out of bounds, etc.
-
-	LastReading Reading
+	Identifier   string `json:"Identifier"`
+	Announcement GardenSystemInfo`gorm:"foreignKey:Identifier"`
+	Readings []Reading`gorm:"foreignKey:Identifier"`
 	LastSeen    time.Time
 }
 
 type GardenSystemInfo struct {
 	gorm.Model
+	Identifier   string  `json:"Identifier"`
 	RestartReason string `json:"RestartReason"`
 	CoreVersion   string `json:"CoreVersion"`
 	SdkVersion    string `json:"SdkVersion"`
@@ -30,8 +28,9 @@ type GardenSystemInfo struct {
 
 type Reading struct {
 	gorm.Model
-	Temperature float32
-	Humidity    float32
+	Identifier   string `json:"Identifier"`
+	Temperature float32 `json:"Temperature"`
+	Humidity    float32	`json:"Humidity"`
 	Time time.Time
 }
 

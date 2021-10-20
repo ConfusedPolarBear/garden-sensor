@@ -8,7 +8,7 @@ import (
 	"github.com/ConfusedPolarBear/garden/internal/api"
 	"github.com/ConfusedPolarBear/garden/internal/config"
 	"github.com/ConfusedPolarBear/garden/internal/mqtt"
-	"github.com/ConfusedPolarBear/garden/internal/dbconn"
+	"github.com/ConfusedPolarBear/garden/dbconn"
 	"github.com/ConfusedPolarBear/garden/internal/util"
 	"github.com/sirupsen/logrus"
 
@@ -25,7 +25,7 @@ func main() {
 	setupLogrus()
 	config.Load()
 	mqtt.Setup(true)
-	api.StartServer()
+	api.StartServer(db)
 }
 
 func setupLogrus() {
