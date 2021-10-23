@@ -122,16 +122,14 @@ func onMqttMessage(c mqtt.Client, m mqtt.Message) {
 func handleMqttMessage(client, topic string, payload []byte) {
 	// Minified discovery message. Must be compatible with the full GardenSystemInfo struct.
 	type miniInfo struct {
-		System struct {
-			IsEmulator          bool
-			IsMesh              bool   `json:"ME"`
-			RestartReason       string `json:"RR"`
-			CoreVersion         string `json:"CV"`
-			SdkVersion          string `json:"SV"`
-			FilesystemUsedSize  int    `json:"FU"`
-			FilesystemTotalSize int    `json:"FT"`
-		}
-		Sensors []string
+		IsEmulator          bool
+		IsMesh              bool   `json:"ME"`
+		RestartReason       string `json:"RR"`
+		CoreVersion         string `json:"CV"`
+		SdkVersion          string `json:"SV"`
+		FilesystemUsedSize  int    `json:"FU"`
+		FilesystemTotalSize int    `json:"FT"`
+		Sensors             []string
 	}
 
 	logrus.Debugf("[mqtt] Message from %s: %s: %s\n", client, topic, payload)

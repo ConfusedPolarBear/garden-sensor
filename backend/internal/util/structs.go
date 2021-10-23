@@ -17,7 +17,6 @@ type GardenSystem struct {
 }
 
 type GardenSystemInfo struct {
-	System struct {
 		// If this garden system is an actually an emulator. This field should not be sent by non-virtual systems.
 		IsEmulator bool
 
@@ -30,8 +29,7 @@ type GardenSystemInfo struct {
 
 		FilesystemUsedSize  int
 		FilesystemTotalSize int
-	}
-	Sensors []string
+	Sensors             []string
 }
 
 type Reading struct {

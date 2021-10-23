@@ -100,22 +100,22 @@ void sendDiscoveryMessage(bool useMqtt) {
     
     // Store reset reason and sdk version. Since the ESP32 does not expose the sdk version, it's only sent by the ESP8266.
     #ifdef ESP8266
-    info["System"]["RR"] = ESP.getResetReason();
-    info["System"]["CV"] = ESP.getCoreVersion();
+    info["RR"] = ESP.getResetReason();
+    info["CV"] = ESP.getCoreVersion();
     #endif
 
-    info["System"]["SV"] = ESP.getSdkVersion();
+    info["SV"] = ESP.getSdkVersion();
 
     // Store filesystem used and total byte counts.
-    info["System"]["FU"] = 0;
-    info["System"]["FT"] = 0;
+    info["FU"] = 0;
+    info["FT"] = 0;
     FSInfo fsInfo;
     if (GetFSInfo(&fsInfo)) {
-        info["System"]["FU"] = fsInfo.usedBytes;
-        info["System"]["FT"] = fsInfo.totalBytes;
+        info["FU"] = fsInfo.usedBytes;
+        info["FT"] = fsInfo.totalBytes;
     }
 
-    info["System"]["ME"] = !useMqtt;
+    info["ME"] = !useMqtt;
 
     #warning TODO: populate the list of sensors from the sensors the backend said we have at programming time
     JsonArray sensors = info.createNestedArray("Sensors");

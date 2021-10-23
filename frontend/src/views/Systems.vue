@@ -71,7 +71,7 @@
         <span v-if="!isEmulator(item)">
           <div class="readingData">
             <v-icon>mdi-file-multiple</v-icon>
-            {{ fsInfo(item.Announcement.System) }}
+            {{ fsInfo(item.Announcement) }}
           </div>
         </span>
       </template>
@@ -173,7 +173,7 @@ export default Vue.extend({
       return `last seen ${diff.toFixed(0)} seconds ago`;
     },
     isEmulator(system: any): boolean {
-      return system.Announcement.System.IsEmulator;
+      return system.Announcement.IsEmulator;
     },
     fsInfo(info: any): string {
       const used = info.FilesystemUsedSize / 1024;
@@ -188,7 +188,7 @@ export default Vue.extend({
       return `${used}K (${percent}%) used out of ${total}K total`;
     },
     meshInfo(system: any, item: string): any {
-      const mesh = system.Announcement.System.IsMesh;
+      const mesh = system.Announcement.IsMesh;
 
       switch (item) {
         case "tooltip":
