@@ -27,26 +27,31 @@
       </template>
 
       <template v-slot:[`item.LastReading`]="{ item }">
-        <tooltip
-          v-if="item.LastReading.Error"
-          text="Error retrieving sensor data"
-        >
-          <v-icon color="red">mdi-alert</v-icon>
-        </tooltip>
-
         <div id="reading" v-if="dataValid(item.LastSeen)">
-          <div class="readingData">
-            <tooltip text="Temperature">
-              <v-icon>mdi-thermometer</v-icon>
-              <span>{{ temp(item.LastReading.Temperature) }} °C</span>
-            </tooltip>
-          </div>
+          <tooltip
+            v-if="item.LastReading.Error"
+            text="Error retrieving sensor data"
+          >
+            <v-icon color="red">mdi-alert</v-icon>
+          </tooltip>
 
-          <div class="readingData">
-            <tooltip text="Humidity">
-              <v-icon>mdi-water-percent</v-icon>
-              <span>{{ item.LastReading.Humidity.toFixed(2) }} %</span>
-            </tooltip>
+          <div v-if="!item.LastReading.Error">
+            <div class="readingData">
+              <tooltip text="Temperature">
+                <v-icon>mdi-thermometer</v-icon>
+                <span>{{ temp(item.LastReading.Temperature) }}</span>
+              </tooltip>
+            </div>
+
+            <div class="readingData">
+              <tooltip text="Humidity">
+                <v-icon>mdi-water-percent</v-icon>
+                <span>{{ item.LastReading.Humidity.toFixed(2) }} %</span>
+              </tooltip>
+            </div>
+          </div>
+          <div class="readingData" v-else>
+            <span class="red--text">Error retrieving sensor data</span>
           </div>
         </div>
         <div id="reading" v-else>
@@ -81,6 +86,10 @@
     >
       <v-icon>mdi-plus</v-icon>
     </v-btn>
+
+    <br />
+    <h2>Temporary settings menu</h2>
+    <v-switch v-model="fahrenheit" label="Use Farenheit" />
   </v-container>
 </template>
 
@@ -122,7 +131,8 @@ export default Vue.extend({
         }
       ],
       systems: Array<unknown>(),
-      showSystemTypes: false
+      showSystemTypes: false,
+      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F"
     };
   },
   methods: {
@@ -192,10 +202,9 @@ export default Vue.extend({
       }
     },
     temp(reading: number): string {
-      // TODO: expose this as a slider in a settings page somewhere
-      const units = window.localStorage.getItem("units") ?? "C";
+      const units = this.fahrenheit ? "F" : "C";
 
-      if (units === "F") {
+      if (this.fahrenheit) {
         reading = (9 / 5) * reading + 32;
       }
 
@@ -209,14 +218,19 @@ export default Vue.extend({
     setInterval(() => {
       this.$forceUpdate();
     }, 60 * 1000);
+  },
+  watch: {
+    fahrenheit() {
+      window.localStorage.setItem("units", this.fahrenheit ? "F" : "C");
+    }
   }
 });
 </script>
 
 <style scoped>
 div#reading span {
-  margin-left: 5px;
-  margin-right: 1rem;
+  margin-left: 0.1rem;
+  margin-right: 0.1rem;
 }
 
 /* This ensures the reading icons aren't separated from the reading data point when wrapped on mobile */

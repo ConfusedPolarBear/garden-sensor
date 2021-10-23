@@ -8,6 +8,8 @@ String meshController;
 int meshChannel;
 
 void setup() {
+    Wire.begin(4, 5);  // data, clock
+
     Serial.begin(115200);
     Serial.setTimeout(500);     // timeout for readStringUntil()
 
