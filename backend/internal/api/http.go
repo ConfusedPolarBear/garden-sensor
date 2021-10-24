@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/ConfusedPolarBear/garden/internal/db"
 	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	"github.com/gorilla/mux"
@@ -43,5 +44,5 @@ func PingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSystems(w http.ResponseWriter, r *http.Request) {
-	w.Write(util.Marshal(util.SystemMapToSlice()))
+	w.Write(util.Marshal(db.GetAllSystems()))
 }

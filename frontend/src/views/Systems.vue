@@ -27,7 +27,7 @@
       </template>
 
       <template v-slot:[`item.LastReading`]="{ item }">
-        <div id="reading" v-if="dataValid(item.LastSeen)">
+        <div id="reading" v-if="dataValid(item.UpdatedAt)">
           <tooltip
             v-if="item.LastReading.Error"
             text="Error retrieving sensor data"
@@ -60,10 +60,10 @@
         </div>
       </template>
 
-      <template v-slot:[`item.LastSeen`]="{ item }">
+      <template v-slot:[`item.UpdatedAt`]="{ item }">
         <div class="readingData">
           <v-icon style="margin-right: 0.5rem">mdi-clock</v-icon>
-          <span>{{ age(item.LastSeen) }}</span>
+          <span>{{ age(item.UpdatedAt) }}</span>
         </div>
       </template>
 
@@ -123,7 +123,7 @@ export default Vue.extend({
         },
         {
           text: "Last Seen",
-          value: "LastSeen"
+          value: "UpdatedAt"
         },
         {
           text: "Filesystem",
