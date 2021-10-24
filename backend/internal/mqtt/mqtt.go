@@ -15,6 +15,7 @@ import (
 
 	"github.com/ConfusedPolarBear/garden/internal/api"
 	"github.com/ConfusedPolarBear/garden/internal/config"
+	"github.com/ConfusedPolarBear/garden/internal/db"
 	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -122,6 +123,7 @@ func onMqttMessage(c mqtt.Client, m mqtt.Message) {
 func handleMqttMessage(client, topic string, payload []byte) {
 	// Minified discovery message. Must be compatible with the full GardenSystemInfo struct.
 	type miniInfo struct {
+		GardenSystemID      string
 		IsEmulator          bool
 		IsMesh              bool   `json:"ME"`
 		RestartReason       string `json:"RR"`
@@ -129,7 +131,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		SdkVersion          string `json:"SV"`
 		FilesystemUsedSize  int    `json:"FU"`
 		FilesystemTotalSize int    `json:"FT"`
-		Sensors             []string
+		Sensors             []util.Sensor
 	}
 
 	logrus.Debugf("[mqtt] Message from %s: %s: %s\n", client, topic, payload)
@@ -151,30 +153,36 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		}
 
 		info := util.GardenSystemInfo(miniInfo)
-		util.UpdateSystem(util.GardenSystem{
+		err := db.CreateSystem(util.GardenSystem{
 			Identifier:   id,
 			Announcement: info,
-			LastSeen:     time.Time{},
 		})
+		if err != nil {
+			logrus.Errorf("[mqtt] unable to update system: %s", err)
+		}
 
 		return
 	}
 
-	system, err := util.GetSystem(client)
+	system, err := db.GetSystem(client)
 	if err != nil {
 		logrus.Warnf("[mqtt] unable to find system with id %s", client)
 		return
 	}
 
-	system.LastSeen = time.Now()
+	system.UpdatedAt = time.Now()
 
 	if strings.Contains(topic, "/tele/") {
 		if strings.HasSuffix(topic, "/data") {
+			var reading util.Reading
+
 			// Sensor readings
-			if err := json.Unmarshal(payload, &system.LastReading); err != nil {
+			if err := json.Unmarshal(payload, &reading); err != nil {
 				logrus.Warnf("[mqtt] unable to unmarshal reading: %s\n", err)
 				return
 			}
+
+			system.Readings = append(system.Readings, reading)
 
 		} else if strings.HasSuffix(topic, "/networks") {
 			// Wi-Fi scan results
@@ -309,8 +317,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		}
 	}
 
-	// TODO: fix concurrency issues here
-	util.UpdateSystem(system)
+	db.UpdateSystem(system)
 
 	api.BroadcastWebsocketMessage("update", system)
 }
