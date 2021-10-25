@@ -30,6 +30,7 @@
 </template>
 
 <script lang="ts">
+// import "./styles/abstracts/partials/_colors.scss"
 import Vue from "vue";
 
 let websocket: WebSocket;
@@ -126,7 +127,8 @@ export default Vue.extend({
 });
 </script>
 
-<style scoped>
+<style scoped type="text/scss">
+
 #logo {
   margin-right: 0.5rem;
 }
