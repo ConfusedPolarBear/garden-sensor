@@ -1,8 +1,15 @@
 <template>
   <v-app>
     <v-app-bar app :color="getBarColor()" dark>
-      <v-icon v-if="connected" id="logo" large>mdi-leaf</v-icon>
-      <v-icon v-else-if="showConnectionError()" id="logo" large>
+      <v-icon v-if="connected" @click="$router.push('/')" id="logo" large>
+        mdi-leaf
+      </v-icon>
+      <v-icon
+        v-else-if="showConnectionError()"
+        @click="$router.push('/')"
+        id="logo"
+        large
+      >
         mdi-leaf-off
       </v-icon>
 

@@ -6,21 +6,52 @@
         <code>{{ item.Identifier }}</code>
       </template>
 
+      <template v-slot:[`item.Connection`]="{ item }">
+        <div class="readingData">
+          <tooltip :text="meshInfo(item, 'tooltip')">
+            <v-icon>
+              {{ meshInfo(item, "icon") }}
+            </v-icon>
+          </tooltip>
+
+          <span v-if="showSystemTypes" style="margin-left: 1rem">
+            <tooltip text="Virtual">
+              <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
+            </tooltip>
+
+            <tooltip text="Physical">
+              <v-icon v-if="!isEmulator(item)">mdi-memory</v-icon>
+            </tooltip>
+          </span>
+        </div>
+      </template>
+
       <template v-slot:[`item.LastReading`]="{ item }">
         <div id="reading" v-if="dataValid(item.LastSeen)">
-          <div class="readingData">
-            <v-icon>mdi-thermometer</v-icon>
-            <span>{{ item.LastReading.Temperature }} °C</span>
-          </div>
+          <tooltip
+            v-if="item.LastReading.Error"
+            text="Error retrieving sensor data"
+          >
+            <v-icon color="red">mdi-alert</v-icon>
+          </tooltip>
 
-          <div class="readingData">
-            <v-icon>mdi-water-percent</v-icon>
-            <span>{{ item.LastReading.Humidity }} %</span>
-          </div>
+          <div v-if="!item.LastReading.Error">
+            <div class="readingData">
+              <tooltip text="Temperature">
+                <v-icon>mdi-thermometer</v-icon>
+                <span>{{ temp(item.LastReading.Temperature) }}</span>
+              </tooltip>
+            </div>
 
-          <div class="readingData">
-            <v-icon>mdi-clock</v-icon>
-            <span>{{ age(item.LastSeen) }}</span>
+            <div class="readingData">
+              <tooltip text="Humidity">
+                <v-icon>mdi-water-percent</v-icon>
+                <span>{{ item.LastReading.Humidity.toFixed(2) }} %</span>
+              </tooltip>
+            </div>
+          </div>
+          <div class="readingData" v-else>
+            <span class="red--text">Error retrieving sensor data</span>
           </div>
         </div>
         <div id="reading" v-else>
@@ -28,7 +59,37 @@
           <span>has not reported data yet</span>
         </div>
       </template>
+
+      <template v-slot:[`item.LastSeen`]="{ item }">
+        <div class="readingData">
+          <v-icon style="margin-right: 0.5rem">mdi-clock</v-icon>
+          <span>{{ age(item.LastSeen) }}</span>
+        </div>
+      </template>
+
+      <template v-slot:[`item.Filesystem`]="{ item }">
+        <span v-if="!isEmulator(item)">
+          <div class="readingData">
+            <v-icon>mdi-file-multiple</v-icon>
+            {{ fsInfo(item.Announcement.System) }}
+          </div>
+        </span>
+      </template>
     </v-data-table>
+
+    <v-btn
+      @click="$router.push('/configure')"
+      elevation="2"
+      fab
+      color="green"
+      style="position: relative; top: 5em; float: right"
+    >
+      <v-icon>mdi-plus</v-icon>
+    </v-btn>
+
+    <br />
+    <h2>Temporary settings menu</h2>
+    <v-switch v-model="fahrenheit" label="Use Farenheit" />
   </v-container>
 </template>
 
@@ -37,8 +98,11 @@ import Vue from "vue";
 import api from "@/plugins/api";
 import { MutationPayload } from "vuex";
 
+import Tooltip from "@/components/Tooltip.vue";
+
 export default Vue.extend({
   name: "Systems",
+  components: { Tooltip },
   data() {
     return {
       headers: [
@@ -48,17 +112,33 @@ export default Vue.extend({
           width: "10%"
         },
         {
+          text: "Connection",
+          value: "Connection",
+          width: "10%"
+        },
+        {
           text: "Last Reading",
-          value: "LastReading"
+          value: "LastReading",
+          width: "25%"
+        },
+        {
+          text: "Last Seen",
+          value: "LastSeen"
+        },
+        {
+          text: "Filesystem",
+          value: "Filesystem"
         }
       ],
-      systems: Array<unknown>()
+      systems: Array<unknown>(),
+      showSystemTypes: false,
+      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F"
     };
   },
   methods: {
     load(): void {
       // Load all initial systems.
-      api("/systems")
+      api("/systems");
 
       // Subscribe to the Vuex store for future updates.
       this.$store.subscribe(this.onMutation);
@@ -69,6 +149,20 @@ export default Vue.extend({
       }
 
       this.systems = state.systems;
+
+      // When a new system is registered, check if any emulators are present. If there are any, display system types.
+      // Don't bother to check if this isn't a new system registering itself or if we are already showing type info.
+      if (mutation.type !== "register" || this.showSystemTypes) {
+        return;
+      }
+
+      this.showSystemTypes = false;
+      for (const sys of this.systems) {
+        if (this.isEmulator(sys)) {
+          this.showSystemTypes = true;
+          break;
+        }
+      }
     },
     dataValid(lastSeen: string): boolean {
       return !lastSeen.startsWith("0001");
@@ -77,6 +171,44 @@ export default Vue.extend({
       let diff = Number(new Date()) - Number(new Date(lastSeen));
       diff = Number(diff) / 1000;
       return `last seen ${diff.toFixed(0)} seconds ago`;
+    },
+    isEmulator(system: any): boolean {
+      return system.Announcement.System.IsEmulator;
+    },
+    fsInfo(info: any): string {
+      const used = info.FilesystemUsedSize / 1024;
+      const total = info.FilesystemTotalSize / 1024;
+
+      if (total === 0) {
+        return "No filesystem present";
+      }
+
+      const percent = ((used * 100) / total).toFixed(2);
+
+      return `${used}K (${percent}%) used out of ${total}K total`;
+    },
+    meshInfo(system: any, item: string): any {
+      const mesh = system.Announcement.System.IsMesh;
+
+      switch (item) {
+        case "tooltip":
+          return mesh ? "Mesh" : "MQTT";
+
+        case "icon":
+          return mesh ? "mdi-access-point" : "mdi-wifi";
+
+        default:
+          throw new Error(`unknown meshInfo item ${item}`);
+      }
+    },
+    temp(reading: number): string {
+      const units = this.fahrenheit ? "F" : "C";
+
+      if (this.fahrenheit) {
+        reading = (9 / 5) * reading + 32;
+      }
+
+      return `${reading.toFixed(2)} °${units}`;
     }
   },
   created() {
@@ -86,14 +218,19 @@ export default Vue.extend({
     setInterval(() => {
       this.$forceUpdate();
     }, 60 * 1000);
+  },
+  watch: {
+    fahrenheit() {
+      window.localStorage.setItem("units", this.fahrenheit ? "F" : "C");
+    }
   }
 });
 </script>
 
 <style scoped>
 div#reading span {
-  margin-left: 5px;
-  margin-right: 1rem;
+  margin-left: 0.1rem;
+  margin-right: 0.1rem;
 }
 
 /* This ensures the reading icons aren't separated from the reading data point when wrapped on mobile */

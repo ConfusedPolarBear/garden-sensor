@@ -40,8 +40,8 @@ func main() {
 	mqtt.Subscribe("garden/module/discovery/+", parseDiscoveryMessage)
 	mqtt.Subscribe(baseTopic+"/cmnd/#", handleCommand)
 
-	discovery := `{"System":{"RestartReason":"External System","CoreVersion":"0.0.0","SdkVersion":"2.2.2-dev(38a443e)",` +
-		`"FlashSize":4194304,"RealFlashSize":4194304},"Sensors":["temperature","humidity"]}`
+	discovery := `{"System":{"RR":"External System","CV":"0.0.0","SV":"2.2.2-dev(38a443e)",` +
+		`"IsEmulator":true},"Sensors":["temperature","humidity"]}`
 
 	mqtt.PublishAdvanced("garden/module/discovery/656d75", discovery, 0, true)
 

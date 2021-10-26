@@ -17,17 +17,25 @@ type GardenSystem struct {
 }
 
 type GardenSystemInfo struct {
-	SystemInfo struct {
-		RestartReason string `json:"RestartReason"`
-		CoreVersion   string `json:"CoreVersion"`
-		SdkVersion    string `json:"SdkVersion"`
-		FlashSize     int    `json:"FlashSize"`
-		RealFlashSize int    `json:"RealFlashSize"`
-	} `json:"System"`
-	Sensors []string `json:"Sensors"`
+	System struct {
+		// If this garden system is an actually an emulator. This field should not be sent by non-virtual systems.
+		IsEmulator bool
+
+		// If this system is connected through the mesh.
+		IsMesh        bool
+		RestartReason string
+
+		CoreVersion string
+		SdkVersion  string
+
+		FilesystemUsedSize  int
+		FilesystemTotalSize int
+	}
+	Sensors []string
 }
 
 type Reading struct {
+	Error       bool
 	Temperature float32
 	Humidity    float32
 }
