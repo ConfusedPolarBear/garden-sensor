@@ -19,6 +19,7 @@ func StartServer() {
 	r.HandleFunc("/ping", PingHandler)
 
 	r.HandleFunc("/systems", GetSystems)
+	r.HandleFunc("/system/{id}", GetSystem)
 
 	r.HandleFunc("/socket", WebSocketHandler)
 
@@ -45,4 +46,22 @@ func PingHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetSystems(w http.ResponseWriter, r *http.Request) {
 	w.Write(util.Marshal(db.GetAllSystems()))
+}
+
+func GetSystem(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	if !util.SystemIdentifierRegex.MatchString(id) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	system, err := db.GetSystem(id, true)
+	if err != nil {
+		logrus.Warnf("[api] error getting system %s: %s", id, err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Write(util.Marshal(system))
 }
