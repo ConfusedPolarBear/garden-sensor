@@ -39,12 +39,18 @@ func CreateSystem(system util.GardenSystem) error {
 		Error
 }
 
-func GetSystem(id string) (util.GardenSystem, error) {
+func GetSystem(id string, preloadReadings bool) (util.GardenSystem, error) {
 	var system util.GardenSystem
 
-	err := db.
+	base := db.
 		Preload("Announcement").
-		Preload("Announcement.Sensors").
+		Preload("Announcement.Sensors")
+
+	if preloadReadings {
+		base.Preload("Readings")
+	}
+
+	err := base.
 		Where("identifier = ?", id).
 		First(&system).
 		Error

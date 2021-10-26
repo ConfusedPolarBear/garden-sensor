@@ -164,7 +164,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		return
 	}
 
-	system, err := db.GetSystem(client)
+	system, err := db.GetSystem(client, false)
 	if err != nil {
 		logrus.Warnf("[mqtt] unable to find system with id %s", client)
 		return

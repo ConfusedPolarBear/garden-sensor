@@ -1,11 +1,15 @@
 package util
 
 import (
+	"regexp"
 	"time"
 )
 
 // Structs can be generated from JSON strings with https://mholt.github.io/json-to-go/
 // TODO: track alerts per system. possible alerts: flash size mismatch, temperature/humidity out of bounds, etc.
+
+// Regular expression that all incoming system identifiers must match.
+var SystemIdentifierRegex regexp.Regexp = *regexp.MustCompile("^[a-fA-F0-9]{12}$")
 
 type GardenSystem struct {
 	Identifier string `gorm:"primaryKey;notNull"`
@@ -40,8 +44,6 @@ type GardenSystemInfo struct {
 }
 
 type Reading struct {
-	// Internal identifier for this reading.
-	ID        uint `gorm:"autoIncrement"`
 	CreatedAt time.Time
 
 	// Parent garden system that generated this reading.

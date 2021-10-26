@@ -15,8 +15,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var baseTopic string = "garden/module/656d75"
-var publishDelay float32 = 2
+var id string = "1234567890AB"
+var baseTopic string = "garden/module/" + id
+var publishDelay float32 = 30
 
 // If all current system discovery messages should be removed.
 var flagClearSystems bool
@@ -43,7 +44,7 @@ func main() {
 	discovery := `{"RR":"External System","CV":"0.0.0","SV":"2.2.2-dev(38a443e)",` +
 		`"IsEmulator":true,"Sensors":["temperature","humidity"]}`
 
-	mqtt.PublishAdvanced("garden/module/discovery/656d75", discovery, 0, true)
+	mqtt.PublishAdvanced("garden/module/discovery/"+id, discovery, 0, true)
 
 	temp, humidity := 0, 0
 	for {
