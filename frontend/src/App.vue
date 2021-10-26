@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app class="root">
     <v-app-bar app :color="getBarColor()" dark>
       <v-icon v-if="connected" id="logo" large>mdi-leaf</v-icon>
       <v-icon v-else-if="showConnectionError()" id="logo" large>
@@ -30,7 +30,6 @@
 </template>
 
 <script lang="ts">
-// import "./styles/abstracts/partials/_colors.scss"
 import Vue from "vue";
 
 let websocket: WebSocket;
@@ -127,7 +126,18 @@ export default Vue.extend({
 });
 </script>
 
-<style scoped type="text/scss">
+<style scoped lang="scss">
+// Apply source sans pro to all content in the app
+.root {
+  [class*="text-"] {
+    font-family: $source-sans-pro, sans-serif !important;
+  }
+  font-family: $source-sans-pro, sans-serif !important;
+}
+
+#app {
+  font: $source-sans-pro;
+}
 
 #logo {
   margin-right: 0.5rem;
