@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app class="root">
     <v-app-bar app :color="getBarColor()" dark>
       <v-icon v-if="connected" @click="$router.push('/')" id="logo" large>
         mdi-leaf
@@ -133,7 +133,19 @@ export default Vue.extend({
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+// Apply source sans pro to all content in the app
+.root {
+  [class*="text-"] {
+    font-family: $source-sans-pro, sans-serif !important;
+  }
+  font-family: $source-sans-pro, sans-serif !important;
+}
+
+#app {
+  font: $source-sans-pro;
+}
+
 #logo {
   margin-right: 0.5rem;
 }
