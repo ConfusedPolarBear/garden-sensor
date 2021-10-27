@@ -3,7 +3,9 @@
     <p>Systems:</p>
     <v-data-table :items="$store.state.systems" :headers="headers">
       <template v-slot:[`item.Identifier`]="{ item }">
-        <code>{{ item.Identifier }}</code>
+        <router-link :to="'/graph/' + item.Identifier">
+          <code>{{ item.Identifier }}</code>
+        </router-link>
       </template>
 
       <template v-slot:[`item.Connection`]="{ item }">
@@ -36,14 +38,20 @@
           </tooltip>
 
           <div v-if="!item.LastReading.Error">
-            <div class="readingData">
+            <div
+              class="readingData"
+              v-if="isReadingValid(item.LastReading.Temperature)"
+            >
               <tooltip text="Temperature">
                 <v-icon>mdi-thermometer</v-icon>
                 <span>{{ temp(item.LastReading.Temperature) }}</span>
               </tooltip>
             </div>
 
-            <div class="readingData">
+            <div
+              class="readingData"
+              v-if="isReadingValid(item.LastReading.Humidity)"
+            >
               <tooltip text="Humidity">
                 <v-icon>mdi-water-percent</v-icon>
                 <span>{{ item.LastReading.Humidity.toFixed(2) }} %</span>
@@ -200,6 +208,9 @@ export default Vue.extend({
         default:
           throw new Error(`unknown meshInfo item ${item}`);
       }
+    },
+    isReadingValid(reading: number): boolean {
+      return reading != 32768;
     },
     temp(reading: number): string {
       const units = this.fahrenheit ? "F" : "C";

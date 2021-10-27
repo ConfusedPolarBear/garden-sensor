@@ -149,7 +149,7 @@ void loop() {
     // Publish sensor data
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
-    if (millis() - lastPublish >= 10 * 1000) {
+    if (!isController && millis() - lastPublish >= 10 * 1000) {
         sensorData reading = getSensorData();
 
         StaticJsonDocument<100> json;

@@ -35,10 +35,11 @@ sensor getSensorType(int address) {
     s.address = address;
     s.populate = unknown;
 
-    s.hexAddress = "0x" + String(address, HEX);
-    if (s.hexAddress.length() == 3) {       // as in "0x1" through "0xf"
+    s.hexAddress = String(address, HEX);
+    if (s.hexAddress.length() == 1) {
         s.hexAddress = "0" + s.hexAddress;
     }
+    s.hexAddress = "0x" + s.hexAddress;
 
     uint8_t shortResult;
     uint16_t result;
@@ -81,7 +82,7 @@ sensorData getSensorData() {
         s.populate(s);
     }
 
-    if (latest.temperature == INVALID_DATA || latest.humidity == INVALID_DATA) {
+    if (latest.temperature == INVALID_DATA /*|| latest.humidity == INVALID_DATA*/) {
         latest.error = true;
     }
 
