@@ -181,7 +181,10 @@ export default Vue.extend({
     const res = await api(`/system/${this.$route.params.id}`);
     this.system = await res.json();
 
-    for (const raw of this.system.Readings) {
+    // The backend sends readings ordered newest to oldest but since we store points with push(), the graph will be mirrored.
+    const readings = this.system.Readings.reverse();
+
+    for (const raw of readings) {
       this.storePoint(raw);
     }
 
