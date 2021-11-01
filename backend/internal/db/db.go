@@ -46,8 +46,11 @@ func GetSystem(id string, preloadReadings bool) (util.GardenSystem, error) {
 		Preload("Announcement").
 		Preload("Announcement.Sensors")
 
+	// Cap the number of preloaded readings to preserve performance
 	if preloadReadings {
-		base.Preload("Readings")
+		base.Preload("Readings", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at DESC").Limit(1440)
+		})
 	}
 
 	err := base.
