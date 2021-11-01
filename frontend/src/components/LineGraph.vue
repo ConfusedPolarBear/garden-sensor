@@ -24,9 +24,9 @@
 
     <div v-show="!valid">
       <v-progress-circular v-if="loading" indeterminate />
-      <v-alert type="error" v-else>
+      <v-alert type="warning" dense outlined v-else>
         <strong>
-          <span>No valid {{ type.toLowerCase() }} data points</span>
+          <span>System does not have a {{ type.toLowerCase() }} sensor</span>
         </strong>
       </v-alert>
     </div>
@@ -110,7 +110,8 @@ export default Vue.extend({
     storePoint(point: any) {
       const p = point[this.type];
 
-      if (point.Error || p == 32768) {
+      const invalid = point.Error || p == 32768;
+      if (invalid || new Date(point.CreatedAt).getFullYear() === 0) {
         this.errors++;
         return;
       }
