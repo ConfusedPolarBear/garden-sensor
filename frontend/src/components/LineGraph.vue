@@ -23,7 +23,8 @@
     </div>
 
     <div v-show="!valid">
-      <v-alert type="error">
+      <v-progress-circular v-if="loading" indeterminate />
+      <v-alert type="error" v-else>
         <strong>
           <span>No valid {{ type.toLowerCase() }} data points</span>
         </strong>
@@ -75,6 +76,7 @@ export default Vue.extend({
       system: {} as any,
       chart: {} as Chart,
 
+      loading: true,
       labels: Array<string>(),
       points: Array<number>(),
 
@@ -117,6 +119,8 @@ export default Vue.extend({
       this.points.push(p);
     },
     update(): void {
+      this.loading = false;
+
       this.chart.update();
 
       let n = this.points.length;
