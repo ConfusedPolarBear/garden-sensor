@@ -201,7 +201,7 @@ export default Vue.extend({
 
       switch (item) {
         case "tooltip":
-          return mesh ? "Mesh" : "MQTT";
+          return mesh ? "Mesh" : `MQTT (CH ${system.Announcement.Channel})`;
 
         case "icon":
           return mesh ? "mdi-access-point" : "mdi-wifi";

@@ -126,6 +126,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		GardenSystemID      string
 		IsEmulator          bool
 		IsMesh              bool   `json:"ME"`
+		Channel             int    `json:"CH"`
 		RestartReason       string `json:"RR"`
 		CoreVersion         string `json:"CV"`
 		SdkVersion          string `json:"SV"`

@@ -62,7 +62,7 @@ void setup() {
             LOGW("mesh", "invalid mesh channel specified, defaulting to 1");
             meshChannel = 1;
         } else {
-            LOGD("mesh", "using mesh channel " + meshChannel);
+            LOGD("mesh", "using mesh channel " + String(meshChannel));
         }
     } else {
         LOGD("mesh", "using default channel of 1");
@@ -105,6 +105,10 @@ void setup() {
         Serial << "IP address: " << WiFi.localIP() << endl;
 
         connectToBroker(mqttHost, mqttUser, mqttPass);
+
+        // Since ESP-NOW is very unreliable if the channels don't match, force them to match.
+        meshChannel = WiFi.channel();
+        LOGD("mesh", "forcing channel match with channel " + String(meshChannel));
     }
 
     startAccessPoint(meshChannel);
