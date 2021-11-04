@@ -6,7 +6,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var db *gorm.DB
@@ -32,11 +31,31 @@ func InitializeDatabase() {
 }
 
 func CreateSystem(system util.GardenSystem) error {
-	// Upsert the base system and the announcement
-	return db.
-		Clauses(clause.OnConflict{UpdateAll: true}).
-		Create(&system).
-		Error
+	// Ideally, this would be done with one call to Delete() and it would delete all dependent data.
+	// However, that doesn't work since the data for sensors and system info is left dangling in the database.
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// Delete the old system info and abort on error.
+		if err := tx.Delete(&util.GardenSystemInfo{}, "garden_system_id = ?", system.Identifier).Error; err != nil {
+			return err
+		}
+
+		// Delete the old sensors and abort on error.
+		if err := tx.Delete(&util.Sensor{}, "garden_system_info_id = ?", system.Identifier).Error; err != nil {
+			return err
+		}
+
+		// Delete the old system and abort on error.
+		if err := tx.Delete(&system).Error; err != nil {
+			return err
+		}
+
+		// Create the new system.
+		return tx.
+			Create(&system).
+			Error
+	})
+
+	return err
 }
 
 func GetSystem(id string, preloadReadings bool) (util.GardenSystem, error) {
