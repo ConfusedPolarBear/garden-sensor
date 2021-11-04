@@ -83,6 +83,17 @@ func UpdateSystem(system util.GardenSystem) error {
 	return db.Save(&system).Error
 }
 
+func DeleteSystem(id string) error {
+	// TODO: switch to using gorm's deletion methods instead calls to exec
+	err := db.
+		Exec(`DELETE FROM readings WHERE garden_system_id = ?`, id).
+		Exec(`DELETE FROM sensors WHERE garden_system_info_id = ?`, id).
+		Exec(`DELETE FROM garden_system_infos WHERE garden_system_id = ?`, id).
+		Exec(`DELETE FROM garden_systems WHERE identifier = ?`, id).Error
+
+	return err
+}
+
 // Loads the latest reading for this system. This is done to avoid preloading the entire slice of Readings as that would
 // be inefficient.
 func loadLatestReading(system *util.GardenSystem) {
