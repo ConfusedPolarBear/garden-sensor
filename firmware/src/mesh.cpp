@@ -5,6 +5,24 @@ std::vector<String> paired;
 bool controller;
 int channel;
 
+#ifdef ESP32
+void meshSendCallback(const uint8_t* mac, esp_now_send_status_t status) {
+    meshSendCallbackHandler(mac, status == ESP_NOW_SEND_SUCCESS);
+}
+
+void meshReceiveCallback(const uint8_t* mac, const uint8_t* data, int length) {
+    meshReceiveCallbackHandler(mac, data, length);
+}
+#else
+void meshSendCallback(uint8_t* mac, uint8_t status) {
+    meshSendCallbackHandler(mac, status == 0);
+}
+
+void meshReceiveCallback(uint8_t* mac, uint8_t* data, uint8_t length) {
+    meshReceiveCallbackHandler(mac, data, length);
+}
+#endif
+
 void initializeMesh(bool isController, int chan) {
     controller = isController;
     channel = chan;
@@ -15,6 +33,11 @@ void initializeMesh(bool isController, int chan) {
 		LOGF("mesh", "unable to start mesh");
 	}
 
+    #ifdef ESP32
+    LOGD("mesh", "running on esp32, not setting role");
+    #else
+    LOGD("mesh", "running on esp8266, setting role");
+
     if (isController) {
         if (esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER) != 0) {
             LOGF("mesh", "unable to set controller role");
@@ -24,6 +47,7 @@ void initializeMesh(bool isController, int chan) {
             LOGF("mesh", "unable to set client role");
         }
     }
+    #endif
 
     esp_now_register_send_cb(meshSendCallback);
 	esp_now_register_recv_cb(meshReceiveCallback);
@@ -98,10 +122,23 @@ bool addMeshPeer(String mac) {
         return false;
     }
 
+    #ifdef ESP32
+    esp_now_peer_info info;
+    memcpy(info.peer_addr, address, 6);
+    info.channel = channel;
+    info.ifidx = WIFI_IF_AP;       // The ESP32 version of ESP-NOW requires you to select the iface that transmits the packet
+    info.encrypt = false;
+
+    if (esp_now_add_peer(&info) != ESP_OK) {
+        LOGW("mesh", "failed to add peer: call to add_peer failed");
+		return false;
+	}
+    #else
 	if (esp_now_add_peer(address, ESP_NOW_ROLE_SLAVE, channel, NULL, 0) != 0) {
         LOGW("mesh", "failed to add peer: call to add_peer failed");
 		return false;
 	}
+    #endif
 
     paired.push_back(mac);
 
@@ -237,7 +274,11 @@ bool publishMesh(String message, String topic) {
     return true;
 }
 
-void meshReceiveCallback(uint8_t* mac, uint8_t* buf, uint8_t length) {
+void meshSendCallbackHandler(const uint8_t* mac, bool success) {
+    LOGD("mesh", "result from send(): " + String(success));
+}
+
+void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int length) {
 	String payload;
 	Serial << endl << "ESP-NOW message received with " << length << " bytes of payload" << endl;
 
@@ -247,7 +288,7 @@ void meshReceiveCallback(uint8_t* mac, uint8_t* buf, uint8_t length) {
     String strMac = String(strMacRaw);
 
     LOGD("mesh", "message from " + strMac);
-	for (int i = 0; i < static_cast<int>(length); ++i) {
+	for (int i = 0; i < length; ++i) {
 		const char b = static_cast<char>(buf[i]);
 		payload += b;
   	}
@@ -269,15 +310,11 @@ void meshReceiveCallback(uint8_t* mac, uint8_t* buf, uint8_t length) {
 
         // Since this is a client, rebroadcast the packet to all peers *except* the sending device.
         #warning validate that broadcast length is 250
-        broadcastMesh(buf, strMac);
+        broadcastMesh(const_cast<uint8_t*>(buf), strMac);
     } else {
         // If this is the controller, send the packet over MQTT.
 	    publish(payload, "packet");
     }
-}
-
-void meshSendCallback(uint8_t* mac, uint8_t status) {
-    LOGD("mesh", "result from send(): " + String(status));
 }
 
 bool isKnownPeer(String needle) {

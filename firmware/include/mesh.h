@@ -15,11 +15,11 @@ void initializeMesh(bool isController, int channel);
 // Adds ESP-NOW peer and returns result.
 bool addMeshPeer(String mac);
 
-// Callback when a mesh message has been sent.
-void meshSendCallback(uint8_t* mac, uint8_t status);
+// Internal callback handler function when a mesh message has been sent.
+void meshSendCallbackHandler(const uint8_t* mac, bool success);
 
-// Callback when a mesh message has been received.
-void meshReceiveCallback(uint8_t* mac, uint8_t* buf, uint8_t len);
+// Internal callback handler function when a mesh message has been received.
+void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int length);
 
 // Broadcast a message to all paired nodes except one.
 void broadcastMesh(uint8_t* data, String exclude = "");
