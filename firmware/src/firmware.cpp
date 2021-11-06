@@ -260,8 +260,12 @@ void processCommand(String command) {
     }
 
     if (data.containsKey("MeshController")) {
-        WriteFile(FILE_MESH_CONTROLLER, data["MeshController"]);
-        changed = true;
+        String mac = data["MeshController"];
+        uint8_t discard[6];
+        if (parseMac(mac, discard)) {
+            WriteFile(FILE_MESH_CONTROLLER, mac);
+            changed = true; 
+        }
     }
 
     if (data.containsKey("MeshChannel")) {

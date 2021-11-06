@@ -93,6 +93,13 @@ bool parseMac(String mac, uint8_t dst[6]) {
     LOGD("mesh", "attempting to parse mac address " + mac);
 
     memzero(dst, 6);
+
+    mac.toLowerCase();
+    if (mac == "00:00:00:00:00:00" || mac == "ff:ff:ff:ff:ff:ff") {
+        LOGW("mesh", "refusing to add forbidden mac address '" + mac + "'");
+        return false;
+    }
+
 	int values[6];
 	int i;
 

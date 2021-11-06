@@ -12,6 +12,8 @@ void publishMeshRaw(uint8_t* address, uint8_t* data);
 // Initializes ESP-NOW or restart.
 void initializeMesh(bool isController, int channel);
 
+bool parseMac(String mac, uint8_t dst[6]);
+
 // Adds ESP-NOW peer and returns result.
 bool addMeshPeer(String mac);
 
