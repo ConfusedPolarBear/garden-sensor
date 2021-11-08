@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-
 	"github.com/ConfusedPolarBear/garden/internal/api"
 	"github.com/ConfusedPolarBear/garden/internal/config"
 	"github.com/ConfusedPolarBear/garden/internal/db"
@@ -11,12 +10,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+
+
 func main() {
 	setupLogrus()
 
 	config.Load()
 	db.InitializeDatabase()
-
+	//db.PopulateDBForTesting()
+	db.WriteReadingsToCSV()
 	mqtt.Setup(true)
 	api.StartServer()
 }

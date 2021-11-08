@@ -6,6 +6,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"fmt"
+	"time"
+	"math/rand"
+	"os"
+	"log"
+    "encoding/csv"
+	"strconv"
 )
 
 var db *gorm.DB
@@ -28,6 +35,15 @@ func InitializeDatabase() {
 	}
 
 	logrus.Debug("[db] migrations completed successfully")
+}
+
+
+func CreateReading(reading util.Reading) error {
+	reading.CreatedAt = time.Now()
+	if err := db.Create(&reading).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func CreateSystem(system util.GardenSystem) error {
@@ -124,3 +140,73 @@ func loadLatestReading(system *util.GardenSystem) {
 		Limit(1).
 		Find(&system.LastReading)
 }
+
+func WriteReadingsToCSV(){
+	ticker := time.NewTicker(time.Hour * 24 * 7) //Can test this with smaller values like time.Second * 5
+	
+	go func() {
+		for {
+			t := <-ticker.C
+			fmt.Println("Tick at", t)
+			var readings []util.Reading
+			db.Find(&readings)
+			file, _ := os.Create(strconv.Itoa(t.Day()) + "-" + t.Month().String() + ".csv")
+			writer := csv.NewWriter(file)
+
+			var data = [][]string{{"GardenSystemID", "Temperature", "Humidity", "CreatedAt"}}
+			for _, value := range data {
+				err := writer.Write(value)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			for _, reading := range readings {
+				var data = [][]string{{
+					reading.GardenSystemID, 
+					fmt.Sprintf("%f", reading.Temperature),
+					fmt.Sprintf("%f", reading.Humidity),
+					reading.CreatedAt.String(),
+				}}
+				for _, value := range data {
+					err := writer.Write(value)
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				fmt.Println(reading.GardenSystemID, reading.Temperature, reading.Humidity, reading.CreatedAt)
+			}
+			writer.Flush()
+			file.Close()
+			db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&util.Reading{}) //This deletes all the readings 
+		}	
+	}()
+
+}
+
+func PopulateDBForTesting() {
+	for i := 0; i < 10; i++ {
+		t := rand.Float32() * 100
+		h := rand.Float32() * 100
+		testReading := util.Reading{
+			GardenSystemID: "Test",
+			Error: false,
+			Temperature: t,
+			Humidity: h,
+		}
+		if err := CreateReading(testReading); err != nil {
+			panic(err)
+		}
+	
+		reading := &util.Reading{
+			Temperature: t,
+		}
+	
+		if err := db.Where(reading).First(reading).Error; err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("%+v\n",reading)
+	}
+	
+}
+
