@@ -1,5 +1,5 @@
 <template>
-  <v-card v-ripple class="card">
+  <v-card v-ripple flat class="rounded-0 card">
     <v-row class="parent-row">
       <v-col md="auto" :cols="auto">
       <v-icon class="node-icon">
@@ -8,7 +8,6 @@
       </v-col>
       <v-col>
         <h1>{{ moduleName }}</h1>
-          
         <p class="secondary-text">
           Id: 
           <router-link :to="'/graph/' + identifier">
@@ -32,7 +31,7 @@
             </v-icon>
           </h2>
         </div>
-        <p class="secondary-text">Last pushed {{ timeStamp }} seconds ago 
+        <p class="secondary-text">Last pushed {{ timestamp }} seconds ago 
           <v-icon class="icon" small>
             mdi-clock
           </v-icon>
@@ -56,7 +55,7 @@ export default Vue.extend({
     padding-left: .25rem;
   }
   .card:hover {
-    background: lighten($color: #1E1E1E, $amount: 10);
+    background: lighten($color: #1E1E1E, $amount: 8);
     transition: 0.25s;
   }
   .parent-row {
