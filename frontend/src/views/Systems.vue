@@ -3,7 +3,29 @@
     <p>Systems:</p>
     <v-data-table :items="$store.state.systems" :headers="headers">
       <template v-slot:[`item.Identifier`]="{ item }">
-        <code>{{ item.Identifier }}</code>
+        <router-link :to="'/graph/' + item.Identifier">
+          <code>{{ item.Identifier }}</code>
+        </router-link>
+      </template>
+
+      <template v-slot:[`item.Connection`]="{ item }">
+        <div class="readingData">
+          <tooltip :text="meshInfo(item, 'tooltip')">
+            <v-icon>
+              {{ meshInfo(item, "icon") }}
+            </v-icon>
+          </tooltip>
+
+          <span v-if="showSystemTypes" style="margin-left: 1rem">
+            <tooltip text="Virtual">
+              <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
+            </tooltip>
+
+            <tooltip text="Physical">
+              <v-icon v-if="!isEmulator(item)">mdi-memory</v-icon>
+            </tooltip>
+          </span>
+        </div>
       </template>
 
       <template v-slot:[`item.Connection`]="{ item }">
@@ -36,14 +58,20 @@
           </tooltip>
 
           <div v-if="!item.LastReading.Error">
-            <div class="readingData">
+            <div
+              class="readingData"
+              v-if="isReadingValid(item.LastReading.Temperature)"
+            >
               <tooltip text="Temperature">
                 <v-icon>mdi-thermometer</v-icon>
                 <span>{{ temp(item.LastReading.Temperature) }}</span>
               </tooltip>
             </div>
 
-            <div class="readingData">
+            <div
+              class="readingData"
+              v-if="isReadingValid(item.LastReading.Humidity)"
+            >
               <tooltip text="Humidity">
                 <v-icon>mdi-water-percent</v-icon>
                 <span>{{ item.LastReading.Humidity.toFixed(2) }} %</span>
@@ -95,7 +123,7 @@
 
 <script lang="ts">
 import Vue from "vue";
-import api from "@/plugins/api";
+import api, { GardenSystem, GardenSystemInfo } from "@/plugins/api";
 import { MutationPayload } from "vuex";
 
 import Tooltip from "@/components/Tooltip.vue";
@@ -130,7 +158,7 @@ export default Vue.extend({
           value: "Filesystem"
         }
       ],
-      systems: Array<unknown>(),
+      systems: Array<GardenSystem>(),
       showSystemTypes: false,
       fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F"
     };
@@ -172,10 +200,10 @@ export default Vue.extend({
       diff = Number(diff) / 1000;
       return `last seen ${diff.toFixed(0)} seconds ago`;
     },
-    isEmulator(system: any): boolean {
+    isEmulator(system: GardenSystem): boolean {
       return system.Announcement.IsEmulator;
     },
-    fsInfo(info: any): string {
+    fsInfo(info: GardenSystemInfo): string {
       const used = info.FilesystemUsedSize / 1024;
       const total = info.FilesystemTotalSize / 1024;
 
@@ -187,7 +215,7 @@ export default Vue.extend({
 
       return `${used}K (${percent}%) used out of ${total}K total`;
     },
-    meshInfo(system: any, item: string): any {
+    meshInfo(system: GardenSystem, item: string): any {
       const mesh = system.Announcement.IsMesh;
 
       switch (item) {
@@ -200,6 +228,9 @@ export default Vue.extend({
         default:
           throw new Error(`unknown meshInfo item ${item}`);
       }
+    },
+    isReadingValid(reading: number): boolean {
+      return reading != 32768;
     },
     temp(reading: number): string {
       const units = this.fahrenheit ? "F" : "C";

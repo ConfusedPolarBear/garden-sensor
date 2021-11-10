@@ -2,6 +2,7 @@ import Vue from "vue";
 import VueRouter, { RouteConfig } from "vue-router";
 import Setup from "@/views/Setup.vue";
 import Systems from "@/views/Systems.vue";
+import Graph from "@/views/Graph.vue";
 import Configuration from "@/views/Configuration.vue";
 
 Vue.use(VueRouter);
@@ -16,6 +17,11 @@ const routes: Array<RouteConfig> = [
     path: "/systems",
     name: "systems",
     component: Systems
+  },
+  {
+    path: "/graph/:id",
+    name: "graph",
+    component: Graph
   },
   {
     path: "/configure",

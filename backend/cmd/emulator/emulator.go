@@ -17,7 +17,7 @@ import (
 
 var id string = "1234567890AB"
 var baseTopic string = "garden/module/" + id
-var publishDelay float32 = 30
+var publishDelay float32 = 10
 
 // If all current system discovery messages should be removed.
 var flagClearSystems bool
@@ -46,10 +46,10 @@ func main() {
 
 	mqtt.PublishAdvanced("garden/module/discovery/"+id, discovery, 0, true)
 
-	temp, humidity := 0, 0
+	temp, humidity := -10, 0
 	for {
 		if temp += 2; temp >= 45 {
-			temp = 0
+			temp = -10
 		}
 
 		if humidity += 3; humidity >= 100 {
