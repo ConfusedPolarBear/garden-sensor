@@ -1,5 +1,5 @@
 <template>
-  <v-card class="card">
+  <v-card v-ripple class="card">
     <v-row class="parent-row">
       <v-col md="auto" :cols="auto">
       <v-icon class="node-icon">
