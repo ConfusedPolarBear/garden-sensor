@@ -27,7 +27,7 @@
       </template>
 
       <template v-slot:[`item.LastReading`]="{ item }">
-        <div id="reading" v-if="dataValid(item.LastSeen)">
+        <div id="reading" v-if="dataValid(item.UpdatedAt)">
           <tooltip
             v-if="item.LastReading.Error"
             text="Error retrieving sensor data"
@@ -60,10 +60,10 @@
         </div>
       </template>
 
-      <template v-slot:[`item.LastSeen`]="{ item }">
+      <template v-slot:[`item.UpdatedAt`]="{ item }">
         <div class="readingData">
           <v-icon style="margin-right: 0.5rem">mdi-clock</v-icon>
-          <span>{{ age(item.LastSeen) }}</span>
+          <span>{{ age(item.UpdatedAt) }}</span>
         </div>
       </template>
 
@@ -71,7 +71,7 @@
         <span v-if="!isEmulator(item)">
           <div class="readingData">
             <v-icon>mdi-file-multiple</v-icon>
-            {{ fsInfo(item.Announcement.System) }}
+            {{ fsInfo(item.Announcement) }}
           </div>
         </span>
       </template>
@@ -123,7 +123,7 @@ export default Vue.extend({
         },
         {
           text: "Last Seen",
-          value: "LastSeen"
+          value: "UpdatedAt"
         },
         {
           text: "Filesystem",
@@ -173,7 +173,7 @@ export default Vue.extend({
       return `last seen ${diff.toFixed(0)} seconds ago`;
     },
     isEmulator(system: any): boolean {
-      return system.Announcement.System.IsEmulator;
+      return system.Announcement.IsEmulator;
     },
     fsInfo(info: any): string {
       const used = info.FilesystemUsedSize / 1024;
@@ -188,7 +188,7 @@ export default Vue.extend({
       return `${used}K (${percent}%) used out of ${total}K total`;
     },
     meshInfo(system: any, item: string): any {
-      const mesh = system.Announcement.System.IsMesh;
+      const mesh = system.Announcement.IsMesh;
 
       switch (item) {
         case "tooltip":

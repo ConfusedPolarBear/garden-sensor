@@ -9,7 +9,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/ConfusedPolarBear/garden/internal/util"
+	"github.com/ConfusedPolarBear/garden/internal/db"
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -71,7 +71,7 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	// Send all systems for the first update
 	conn.WriteJSON(WebSocketMessage{
 		Type: "register",
-		Data: util.SystemMapToSlice(),
+		Data: db.GetAllSystems(),
 	})
 
 	wsClients.PushBack(conn)
@@ -109,9 +109,4 @@ func BroadcastWebsocketMessage(messageType string, data interface{}) {
 	for _, c := range staleConnections {
 		wsClients.Remove(c)
 	}
-}
-
-// Reports that a new garden system has joined the server
-func BroadcastNewClient() {
-	BroadcastWebsocketMessage("register", util.SystemMapToSlice())
 }
