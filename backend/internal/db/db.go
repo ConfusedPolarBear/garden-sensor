@@ -3,16 +3,17 @@ package db
 import (
 	"github.com/ConfusedPolarBear/garden/internal/util"
 
+	"encoding/csv"
+	"fmt"
+	"log"
+	"math/rand"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"fmt"
-	"time"
-	"math/rand"
-	"os"
-	"log"
-    "encoding/csv"
-	"strconv"
 )
 
 var db *gorm.DB
@@ -36,7 +37,6 @@ func InitializeDatabase() {
 
 	logrus.Debug("[db] migrations completed successfully")
 }
-
 
 func CreateReading(reading util.Reading) error {
 	reading.CreatedAt = time.Now()
@@ -141,9 +141,9 @@ func loadLatestReading(system *util.GardenSystem) {
 		Find(&system.LastReading)
 }
 
-func WriteReadingsToCSV(){
-	ticker := time.NewTicker(time.Hour * 24 * 7) //Can test this with smaller values like time.Second * 5
-	
+func ArchiveOldReadings() {
+	ticker := time.NewTicker(time.Hour * 24 * 7) // Can test this with smaller values like time.Second * 5
+
 	go func() {
 		for {
 			t := <-ticker.C
@@ -160,9 +160,10 @@ func WriteReadingsToCSV(){
 					log.Fatal(err)
 				}
 			}
+
 			for _, reading := range readings {
 				var data = [][]string{{
-					reading.GardenSystemID, 
+					reading.GardenSystemID,
 					fmt.Sprintf("%f", reading.Temperature),
 					fmt.Sprintf("%f", reading.Humidity),
 					reading.CreatedAt.String(),
@@ -175,38 +176,39 @@ func WriteReadingsToCSV(){
 				}
 				fmt.Println(reading.GardenSystemID, reading.Temperature, reading.Humidity, reading.CreatedAt)
 			}
+
 			writer.Flush()
 			file.Close()
-			db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&util.Reading{}) //This deletes all the readings 
-		}	
+			db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&util.Reading{}) // This deletes all the readings
+		}
 	}()
-
 }
 
-func PopulateDBForTesting() {
+func PopulateTestData() {
 	for i := 0; i < 10; i++ {
 		t := rand.Float32() * 100
 		h := rand.Float32() * 100
+
 		testReading := util.Reading{
 			GardenSystemID: "Test",
-			Error: false,
-			Temperature: t,
-			Humidity: h,
+			Error:          false,
+			Temperature:    t,
+			Humidity:       h,
 		}
+
 		if err := CreateReading(testReading); err != nil {
 			panic(err)
 		}
-	
+
 		reading := &util.Reading{
 			Temperature: t,
 		}
-	
+
 		if err := db.Where(reading).First(reading).Error; err != nil {
 			panic(err)
 		}
 
-		fmt.Printf("%+v\n",reading)
+		fmt.Printf("%+v\n", reading)
 	}
-	
-}
 
+}
