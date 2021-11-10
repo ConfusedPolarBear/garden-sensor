@@ -1,11 +1,12 @@
 import Vue from "vue";
 import Vuex from "vuex";
+import { GardenSystem } from "./types";
 
 Vue.use(Vuex);
 
 export default new Vuex.Store({
   state: {
-    systems: Array<any>() // TODO: add TS types for systems
+    systems: Array<GardenSystem>()
   },
   mutations: {
     // A garden system has just published new data.

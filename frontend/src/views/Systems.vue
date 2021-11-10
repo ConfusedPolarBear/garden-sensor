@@ -123,7 +123,8 @@
 
 <script lang="ts">
 import Vue from "vue";
-import api, { GardenSystem, GardenSystemInfo } from "@/plugins/api";
+import api from "@/plugins/api";
+import { GardenSystem, GardenSystemInfo } from "@/store/types";
 import { MutationPayload } from "vuex";
 
 import Tooltip from "@/components/Tooltip.vue";

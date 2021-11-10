@@ -31,8 +31,9 @@
 import Vue from "vue";
 import { MutationPayload } from "vuex";
 
-import api, { GardenSystem } from "@/plugins/api";
+import api from "@/plugins/api";
 import SensorPreview from "@/components/SensorPreview.vue";
+import { GardenSystem } from "@/store/types";
 
 export default Vue.extend({
   name: "SystemInfo",
