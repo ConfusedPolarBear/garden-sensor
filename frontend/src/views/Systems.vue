@@ -103,7 +103,7 @@
 
 <script lang="ts">
 import Vue from "vue";
-import api from "@/plugins/api";
+import api, { GardenSystem, GardenSystemInfo } from "@/plugins/api";
 import { MutationPayload } from "vuex";
 
 import Tooltip from "@/components/Tooltip.vue";
@@ -138,7 +138,7 @@ export default Vue.extend({
           value: "Filesystem"
         }
       ],
-      systems: Array<unknown>(),
+      systems: Array<GardenSystem>(),
       showSystemTypes: false,
       fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F"
     };
@@ -180,10 +180,10 @@ export default Vue.extend({
       diff = Number(diff) / 1000;
       return `last seen ${diff.toFixed(0)} seconds ago`;
     },
-    isEmulator(system: any): boolean {
+    isEmulator(system: GardenSystem): boolean {
       return system.Announcement.IsEmulator;
     },
-    fsInfo(info: any): string {
+    fsInfo(info: GardenSystemInfo): string {
       const used = info.FilesystemUsedSize / 1024;
       const total = info.FilesystemTotalSize / 1024;
 
@@ -195,7 +195,7 @@ export default Vue.extend({
 
       return `${used}K (${percent}%) used out of ${total}K total`;
     },
-    meshInfo(system: any, item: string): any {
+    meshInfo(system: GardenSystem, item: string): any {
       const mesh = system.Announcement.IsMesh;
 
       switch (item) {
