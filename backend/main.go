@@ -19,8 +19,10 @@ func main() {
 	// Setup database and archive old readings
 	db.InitializeDatabase()
 
-	// db.PopulateTestData()
-	db.ArchiveOldReadings()
+	/*
+		db.PopulateTestData()
+		db.ArchiveOldReadings()
+	*/
 
 	// Setup MQTT and HTTP API
 	mqtt.Setup(true)
