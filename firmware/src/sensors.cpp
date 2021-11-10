@@ -82,7 +82,7 @@ sensorData getSensorData() {
         s.populate(s);
     }
 
-    if (latest.temperature == INVALID_DATA /*|| latest.humidity == INVALID_DATA*/) {
+    if (latest.temperature == INVALID_DATA) {
         latest.error = true;
     }
 

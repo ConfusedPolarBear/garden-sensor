@@ -28,6 +28,26 @@
         </div>
       </template>
 
+      <template v-slot:[`item.Connection`]="{ item }">
+        <div class="readingData">
+          <tooltip :text="meshInfo(item, 'tooltip')">
+            <v-icon>
+              {{ meshInfo(item, "icon") }}
+            </v-icon>
+          </tooltip>
+
+          <span v-if="showSystemTypes" style="margin-left: 1rem">
+            <tooltip text="Virtual">
+              <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
+            </tooltip>
+
+            <tooltip text="Physical">
+              <v-icon v-if="!isEmulator(item)">mdi-memory</v-icon>
+            </tooltip>
+          </span>
+        </div>
+      </template>
+
       <template v-slot:[`item.LastReading`]="{ item }">
         <div id="reading" v-if="dataValid(item.UpdatedAt)">
           <tooltip

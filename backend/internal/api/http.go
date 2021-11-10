@@ -16,10 +16,11 @@ func StartServer() {
 	r := mux.NewRouter()
 	r.Use(corsMiddleware)
 
-	r.HandleFunc("/ping", PingHandler)
+	r.HandleFunc("/ping", PingHandler).Methods("GET")
 
-	r.HandleFunc("/systems", GetSystems)
-	r.HandleFunc("/system/{id}", GetSystem)
+	r.HandleFunc("/systems", GetSystems).Methods("GET")
+	r.HandleFunc("/system/{id}", GetSystem).Methods("GET")
+	r.HandleFunc("/system/delete/{id}", DeleteSystem).Methods("POST")
 
 	r.HandleFunc("/socket", WebSocketHandler)
 
@@ -49,10 +50,8 @@ func GetSystems(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSystem(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	if !util.SystemIdentifierRegex.MatchString(id) {
-		w.WriteHeader(http.StatusBadRequest)
+	id, err := getId(w, r)
+	if err != nil {
 		return
 	}
 
@@ -64,4 +63,19 @@ func GetSystem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(util.Marshal(system))
+}
+
+func DeleteSystem(w http.ResponseWriter, r *http.Request) {
+	id, err := getId(w, r)
+	if err != nil {
+		return
+	}
+
+	if err := db.DeleteSystem(id); err != nil {
+		logrus.Warnf("[server] unable to delete system %s: %s", id, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

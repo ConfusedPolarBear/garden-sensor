@@ -12,11 +12,19 @@ import (
 )
 
 func main() {
+	// Setup logging and load base configuration
 	setupLogrus()
-
 	config.Load()
+
+	// Setup database and archive old readings
 	db.InitializeDatabase()
 
+	/*
+		db.PopulateTestData()
+		db.ArchiveOldReadings()
+	*/
+
+	// Setup MQTT and HTTP API
 	mqtt.Setup(true)
 	api.StartServer()
 }

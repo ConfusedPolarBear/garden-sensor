@@ -3,10 +3,17 @@ package db
 import (
 	"github.com/ConfusedPolarBear/garden/internal/util"
 
+	"encoding/csv"
+	"fmt"
+	"log"
+	"math/rand"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var db *gorm.DB
@@ -31,12 +38,40 @@ func InitializeDatabase() {
 	logrus.Debug("[db] migrations completed successfully")
 }
 
+func CreateReading(reading util.Reading) error {
+	reading.CreatedAt = time.Now()
+	if err := db.Create(&reading).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func CreateSystem(system util.GardenSystem) error {
-	// Upsert the base system and the announcement
-	return db.
-		Clauses(clause.OnConflict{UpdateAll: true}).
-		Create(&system).
-		Error
+	// Ideally, this would be done with one call to Delete() and it would delete all dependent data.
+	// However, that doesn't work since the data for sensors and system info is left dangling in the database.
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// Delete the old system info and abort on error.
+		if err := tx.Delete(&util.GardenSystemInfo{}, "garden_system_id = ?", system.Identifier).Error; err != nil {
+			return err
+		}
+
+		// Delete the old sensors and abort on error.
+		if err := tx.Delete(&util.Sensor{}, "garden_system_info_id = ?", system.Identifier).Error; err != nil {
+			return err
+		}
+
+		// Delete the old system and abort on error.
+		if err := tx.Delete(&system).Error; err != nil {
+			return err
+		}
+
+		// Create the new system.
+		return tx.
+			Create(&system).
+			Error
+	})
+
+	return err
 }
 
 func GetSystem(id string, preloadReadings bool) (util.GardenSystem, error) {
@@ -83,6 +118,17 @@ func UpdateSystem(system util.GardenSystem) error {
 	return db.Save(&system).Error
 }
 
+func DeleteSystem(id string) error {
+	// TODO: switch to using gorm's deletion methods instead calls to exec
+	err := db.
+		Exec(`DELETE FROM readings WHERE garden_system_id = ?`, id).
+		Exec(`DELETE FROM sensors WHERE garden_system_info_id = ?`, id).
+		Exec(`DELETE FROM garden_system_infos WHERE garden_system_id = ?`, id).
+		Exec(`DELETE FROM garden_systems WHERE identifier = ?`, id).Error
+
+	return err
+}
+
 // Loads the latest reading for this system. This is done to avoid preloading the entire slice of Readings as that would
 // be inefficient.
 func loadLatestReading(system *util.GardenSystem) {
@@ -93,4 +139,76 @@ func loadLatestReading(system *util.GardenSystem) {
 		Where("garden_system_id = ?", system.Identifier).
 		Limit(1).
 		Find(&system.LastReading)
+}
+
+func ArchiveOldReadings() {
+	ticker := time.NewTicker(time.Hour * 24 * 7) // Can test this with smaller values like time.Second * 5
+
+	go func() {
+		for {
+			t := <-ticker.C
+			fmt.Println("Tick at", t)
+			var readings []util.Reading
+			db.Find(&readings)
+			file, _ := os.Create(strconv.Itoa(t.Day()) + "-" + t.Month().String() + ".csv")
+			writer := csv.NewWriter(file)
+
+			var data = [][]string{{"GardenSystemID", "Temperature", "Humidity", "CreatedAt"}}
+			for _, value := range data {
+				err := writer.Write(value)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+
+			for _, reading := range readings {
+				var data = [][]string{{
+					reading.GardenSystemID,
+					fmt.Sprintf("%f", reading.Temperature),
+					fmt.Sprintf("%f", reading.Humidity),
+					reading.CreatedAt.String(),
+				}}
+				for _, value := range data {
+					err := writer.Write(value)
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				fmt.Println(reading.GardenSystemID, reading.Temperature, reading.Humidity, reading.CreatedAt)
+			}
+
+			writer.Flush()
+			file.Close()
+			db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&util.Reading{}) // This deletes all the readings
+		}
+	}()
+}
+
+func PopulateTestData() {
+	for i := 0; i < 10; i++ {
+		t := rand.Float32() * 100
+		h := rand.Float32() * 100
+
+		testReading := util.Reading{
+			GardenSystemID: "Test",
+			Error:          false,
+			Temperature:    t,
+			Humidity:       h,
+		}
+
+		if err := CreateReading(testReading); err != nil {
+			panic(err)
+		}
+
+		reading := &util.Reading{
+			Temperature: t,
+		}
+
+		if err := db.Where(reading).First(reading).Error; err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("%+v\n", reading)
+	}
+
 }
