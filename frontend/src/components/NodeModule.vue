@@ -46,7 +46,7 @@
 import Vue from "vue";
 
 export default Vue.extend({
-    name: "Tooltip",
+    name: "NodeModule",
     props: ["moduleName", "identifier", "isConnected", "timestamp"]
 });
 </script>
