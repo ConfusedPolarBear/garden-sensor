@@ -138,8 +138,10 @@ export default Vue.extend({
 .root {
   [class*="text-"] {
     font-family: $source-sans-pro, sans-serif !important;
+    color: $white-0;
   }
   font-family: $source-sans-pro, sans-serif !important;
+  color: $white-0;
 }
 
 #app {
