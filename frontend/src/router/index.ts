@@ -20,7 +20,7 @@ const routes: Array<RouteConfig> = [
     component: Systems
   },
   {
-    path: "/graph/:id",
+    path: "/graph/:id/:type",
     name: "graph",
     component: Graph
   },

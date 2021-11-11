@@ -1,10 +1,10 @@
 import Vue from "vue";
 import Vuex from "vuex";
-import { GardenSystem } from "./types";
+import { GardenSystem, StoreState } from "./types";
 
 Vue.use(Vuex);
 
-export default new Vuex.Store({
+export default new Vuex.Store<StoreState>({
   state: {
     systems: Array<GardenSystem>()
   },

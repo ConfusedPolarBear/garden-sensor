@@ -1,3 +1,7 @@
+export interface StoreState {
+  systems: Array<GardenSystem>;
+}
+
 // Copied from /backend/internal/util/
 
 export type Sensor = {

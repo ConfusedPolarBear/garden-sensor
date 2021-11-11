@@ -1,11 +1,10 @@
 <template>
   <v-container>
     <h2>System: {{ id }}</h2>
-    <v-container>
-      <v-row justify="space-around" justify-sm="start">
+    <v-container v-if="!initializing">
+      <v-row justify="center" justify-sm="start">
         <v-col>
-          <!-- TODO: bring up individual sensor graphs -->
-          <router-link :to="'/graph/' + id">
+          <router-link :to="`/graph/${id}/Temperature`">
             <sensor-preview
               name="Temperature"
               icon="mdi-thermometer"
@@ -14,16 +13,24 @@
           </router-link>
         </v-col>
         <v-col>
-          <router-link :to="'/graph/' + id">
+          <router-link :to="`/graph/${id}/Humidity`">
             <sensor-preview
               name="Humidity"
               icon="mdi-water-percent"
-              :data="system.LastReading.Temperature"
+              :data="system.LastReading.Humidity"
             />
           </router-link>
         </v-col>
       </v-row>
     </v-container>
+    <v-expansion-panels>
+      <v-expansion-panel>
+        <v-expansion-panel-header>Debug Info</v-expansion-panel-header>
+        <v-expansion-panel-content>
+          <pre> {{ JSON.stringify(system, undefined, 2) }} </pre>
+        </v-expansion-panel-content>
+      </v-expansion-panel>
+    </v-expansion-panels>
   </v-container>
 </template>
 
@@ -40,7 +47,7 @@ export default Vue.extend({
   components: { SensorPreview },
   data() {
     return {
-      reveal: false,
+      initializing: true,
       system: {} as GardenSystem
     };
   },
@@ -50,7 +57,7 @@ export default Vue.extend({
     }
   },
   methods: {
-    onMutation(mutation: MutationPayload, state: any) {
+    onMutation(mutation: MutationPayload) {
       if (
         mutation.type === "update" &&
         mutation.payload.Identifier === this.id
@@ -62,6 +69,7 @@ export default Vue.extend({
   async created() {
     const res = await api(`/system/${this.$route.params.id}`);
     this.system = await res.json();
+    this.initializing = false;
   },
   mounted() {
     this.$store.subscribe(this.onMutation);
