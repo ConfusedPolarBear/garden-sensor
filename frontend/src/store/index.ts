@@ -19,7 +19,9 @@ export default new Vuex.Store<StoreState>({
         }
       }
 
-      throw new Error(`Unable to find client with identifier ${newClient.Identifier}`);
+      throw new Error(
+        `Unable to find client with identifier ${newClient.Identifier}`
+      );
     },
     // A new client has joined the server, add it's information to our local state
     register(state, systems) {
