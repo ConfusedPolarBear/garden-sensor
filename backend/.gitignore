@@ -6,3 +6,5 @@
 # Configuration and database
 /garden.ini
 /garden.db
+
+/data
