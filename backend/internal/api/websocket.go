@@ -90,6 +90,12 @@ func BroadcastWebsocketMessage(messageType string, data interface{}) {
 
 	// Send this message to all registered websockets
 	for e := wsClients.Front(); e != nil; e = e.Next() {
+		if e.Value == nil {
+			wsClients.Remove(e)
+			logrus.Warn("[server] removed nil websocket")
+			continue
+		}
+
 		c := e.Value.(*websocket.Conn)
 
 		if err := c.WriteJSON(msg); err != nil {
