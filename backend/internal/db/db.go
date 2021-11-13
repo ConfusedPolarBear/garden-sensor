@@ -2,7 +2,6 @@ package db
 
 import (
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -24,7 +23,7 @@ func InitializeDatabase() {
 
 	logrus.Trace("[db] initializing database connection")
 
-	if err := os.Mkdir("data", 0700); err != nil && !errors.Is(err, os.ErrExist) {
+	if err := util.Mkdir("data"); err != nil {
 		logrus.Fatalf("[db] unable to create data directory: %s", err)
 	}
 

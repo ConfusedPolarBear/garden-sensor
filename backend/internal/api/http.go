@@ -27,8 +27,6 @@ func StartServer() {
 
 	r.HandleFunc("/socket", WebSocketHandler)
 
-	checkFirmwareManifest()
-
 	logrus.Printf("[server] API server listening on http://%s", bind)
 	if err := http.ListenAndServe(bind, r); err != nil {
 		panic(err)

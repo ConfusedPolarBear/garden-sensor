@@ -23,9 +23,21 @@
         <v-stepper-content step="1">
           <p>
             Install (or "flash") the latest stable garden firmware to your
-            ESP8266 or ESP32. Once you have successfully installed the firmware,
-            click Next.
+            ESP8266 or ESP32.
           </p>
+
+          <p>
+            Note: if you are flashing a ESP32 chip and you have not flashed an
+            ESP32 chip before, you will need to download
+            <a href="https://example.com" target="_blank">this ZIP file</a>
+            and place it into your
+            <code>data</code>
+            directory.
+          </p>
+
+          <v-alert color="orange darken-2">TODO: fix ESP32 blob link</v-alert>
+
+          <p>Once you have successfully installed the firmware, click Next.</p>
 
           <esp-web-install-button :manifest="manifestUrl">
             <v-btn slot="activate" color="success darken-1">
