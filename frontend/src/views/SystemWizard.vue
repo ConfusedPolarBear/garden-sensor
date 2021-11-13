@@ -29,13 +29,15 @@
           <p>
             Note: if you are flashing a ESP32 chip and you have not flashed an
             ESP32 chip before, you will need to download
-            <a href="https://example.com" target="_blank">this ZIP file</a>
+            <a
+              href="https://raw.githubusercontent.com/ConfusedPolarBear/garden-sensor/config/esp32/esp32.zip"
+            >
+              this ZIP file
+            </a>
             and place it into your
             <code>data</code>
             directory.
           </p>
-
-          <v-alert color="orange darken-2">TODO: fix ESP32 blob link</v-alert>
 
           <p>Once you have successfully installed the firmware, click Next.</p>
 
