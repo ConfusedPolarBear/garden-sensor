@@ -23,23 +23,9 @@
         <v-stepper-content step="1">
           <p>
             Install (or "flash") the latest stable garden firmware to your
-            ESP8266 or ESP32.
+            ESP8266 or ESP32. Once you have successfully installed the firmware,
+            click Next.
           </p>
-
-          <p>
-            Note: if you are flashing a ESP32 chip and you have not flashed an
-            ESP32 chip before, you will need to download
-            <a
-              href="https://raw.githubusercontent.com/ConfusedPolarBear/garden-sensor/config/esp32/esp32.zip"
-            >
-              this ZIP file
-            </a>
-            and place it into your
-            <code>data</code>
-            directory.
-          </p>
-
-          <p>Once you have successfully installed the firmware, click Next.</p>
 
           <esp-web-install-button :manifest="manifestUrl">
             <v-btn slot="activate" color="success darken-1">
@@ -47,11 +33,11 @@
             </v-btn>
             <span slot="unsupported">
               Your browser does not support the required APIs for in-browser
-              flashing. You can still flash manually with esptool.
+              flashing. You can still install manually with esptool.
             </span>
             <span slot="not-allowed">
               This page must be loaded over HTTPS in order to use in-browser
-              flashing. You can still flash manually with esptool.
+              flashing. You can still install manually with esptool.
             </span>
           </esp-web-install-button>
           <br />
@@ -74,6 +60,7 @@
                   <li>Install <code>esptool</code>.</li>
                   <li>Download the latest stable firmware binary.</li>
                   <li>Open a terminal window (or command prompt).</li>
+                  <li>Run <code>esptool erase_flash</code>.</li>
                   <li>
                     If this chip is an ESP8266, run
                     <code>esptool write_flash 0x0 firmware.bin</code>
@@ -84,6 +71,21 @@
                       esptool write_flash 0x1000 bootloader.bin 0x8000
                       partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin
                     </code>
+
+                    <ol>
+                      <li>
+                        <p>
+                          You will will need to download
+                          <a
+                            href="https://raw.githubusercontent.com/ConfusedPolarBear/garden-sensor/config/esp32/esp32.zip"
+                          >
+                            this ZIP file
+                          </a>
+                          to obtain the bootloader, boot_app0, and partition
+                          binary files.
+                        </p>
+                      </li>
+                    </ol>
                   </li>
                 </ol>
               </v-expansion-panel-content>
@@ -125,9 +127,23 @@
               and permit future systems to communicate directly with it.
             </p>
 
-            <tooltip text="Recommended for grid powered systems">
-              <v-icon large>mdi-power-plug</v-icon>
-            </tooltip>
+            <p>
+              Advantages:
+
+              <ul>
+                <li>Only requires one system</li>
+                <li>Easy firmware updates</li>
+              </ul>
+            </p>
+
+            <p>
+              Disadvantages:
+
+              <ul>
+                <li>Higher power usage than mesh connected systems</li>
+                <li>Requires your garden to be in range of a stable Wi-Fi network</li>
+              </ul>
+            </p>
           </div>
           <div v-else-if="systemType === 'mesh'">
             <p>
@@ -135,9 +151,23 @@
               current garden systems.
             </p>
 
-            <tooltip text="Recommended for battery powered systems">
-              <v-icon large>mdi-battery</v-icon>
-            </tooltip>
+            <p>
+              Advantages:
+
+              <ul>
+                <li>Low power usage</li>
+                <li>Each mesh system expands the total range of the network</li>
+              </ul>
+            </p>
+
+            <p>
+              Disadvantages:
+
+              <ul>
+                <li>Requires at least two garden systems</li>
+                <li>Firmware updates require temporary connectivity to a Wi-Fi network</li>
+              </ul>
+            </p>
           </div>
           <br />
 
@@ -280,7 +310,6 @@
 <script lang="ts">
 import Vue from "vue";
 import WizardCard from "@/components/WizardCard.vue";
-import Tooltip from "@/components/Tooltip.vue";
 
 import "esp-web-tools";
 
@@ -288,7 +317,7 @@ import { Dictionary } from "vue-router/types/router";
 
 export default Vue.extend({
   name: "SystemWizard",
-  components: { WizardCard, Tooltip },
+  components: { WizardCard },
   data() {
     return {
       step: 1,
@@ -473,5 +502,9 @@ export default Vue.extend({
 /* Add a small margin between form inputs */
 div[class*="v-input"] {
   margin-bottom: 10px;
+}
+
+li {
+  margin-bottom: 5px;
 }
 </style>
