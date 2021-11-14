@@ -302,22 +302,38 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
     LOGD("mesh", "message payload is " + payload);
 
     if (!controller) {
-        // If this is a command packet, handle it without rebroadcasting it. Commands are address to a destination by including
-        //    the text "dst-XXXXXXXXXXXX" in the payload where X's are replaced with the MQTT client ID.
-        String commandFlag = "dst-" + getClientId();
-        if (payload.indexOf(commandFlag) != -1) {
+        // If this is a command packet directed to us, handle it without rebroadcasting it.
+        // Commands are addressed to a destination by including the text "dst-XXXXXXXXXXXX"
+        // in the payload where X's are replaced with the MQTT client ID.
+        String directFlag = "dst-" + getClientId();
+
+        // Commands can also be sent to all connected system.
+        String broadcastFlag = "dst-FFFFFFFFFFFF";
+
+        bool isDirect = payload.indexOf(directFlag) != -1;
+        bool isBroadcast = payload.indexOf(broadcastFlag) != -1;
+
+        bool rebroadcast = true;
+
+        if (isDirect || isBroadcast) {
             // This is a command packet addressed to us, handle it.
             payload = payload.substring(6, payload.length());
 
             LOGD("mesh", "handling command '" + payload + "'");
             processCommand(payload);
 
+            // Direct commands don't need to be rebroadcast, since we're handling it.
+            if (isDirect) { rebroadcast = false; }
+        }
+
+        if (!rebroadcast) {
             return;
         }
 
         // Since this is a client, rebroadcast the packet to all peers *except* the sending device.
         #warning validate that broadcast length is 250
         broadcastMesh(const_cast<uint8_t*>(buf), strMac);
+
     } else {
         // If this is the controller, send the packet over MQTT.
 	    publish(payload, "packet");
