@@ -1,14 +1,14 @@
 <template>
   <v-card v-ripple class="parent">
     <v-row no-gutters>
-        <v-icon class="icon">{{ icon }}</v-icon>
+      <v-icon class="icon">{{ icon }}</v-icon>
     </v-row>
-    <v-row no-gutters
-      ><div class="name">{{ name }}</div></v-row
-    >
-    <v-row no-gutters
-      ><h1>{{ data }}</h1></v-row
-    >
+    <v-row no-gutters>
+      <div class="name">{{ name }}</div>
+    </v-row>
+    <v-row no-gutters>
+      <h1>{{ data }}</h1>
+    </v-row>
   </v-card>
 </template>
 
