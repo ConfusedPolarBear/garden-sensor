@@ -4,6 +4,7 @@ import Setup from "@/views/Setup.vue";
 import Systems from "@/views/Systems.vue";
 import Graph from "@/views/Graph.vue";
 import Configuration from "@/views/Configuration.vue";
+import SystemInfo from "@/views/SystemInfo.vue";
 
 Vue.use(VueRouter);
 
@@ -19,9 +20,14 @@ const routes: Array<RouteConfig> = [
     component: Systems
   },
   {
-    path: "/graph/:id",
+    path: "/graph/:id/:type",
     name: "graph",
     component: Graph
+  },
+  {
+    path: "/system/:id",
+    name: "system",
+    component: SystemInfo
   },
   {
     path: "/configure",

@@ -364,7 +364,7 @@ export default Vue.extend({
 #configJson {
   color: transparent;
   text-shadow: 0 0 10px white;
-  overflow-wrap: break-word; 
+  overflow-wrap: break-word;
 }
 
 #configJson:hover {

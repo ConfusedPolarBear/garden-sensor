@@ -20,39 +20,39 @@
 import Vue from "vue";
 
 export default Vue.extend({
-    name: "SensorPreview",
-    props: ["icon", "name", "data", "identifier", "model"]
+  name: "SensorPreview",
+  props: ["icon", "name", "data", "identifier", "model"]
 });
 </script>
 
 <style scoped lang="scss">
-  .parent {
-    padding: 1rem;
-    .name,h1 {
-      padding-left: 1rem;
-    }
-  }
-  .icon {
+.parent {
+  padding: 1rem;
+  .name,
+  h1 {
     padding-left: 1rem;
-    text-align: left;
-    font-size: 5em;
-    color: $green-0;
-  }  
-  .name {
-    font-weight: 300;
   }
-  .data {
-    line-height: 24px;
+}
+.icon {
+  padding-left: 1rem;
+  text-align: left;
+  font-size: 5em;
+  color: $green-0;
+}
+.name {
+  font-weight: 300;
+}
+.data {
+  line-height: 24px;
+}
+.rhs.col {
+  color: $white-3;
+  padding-right: 2rem;
+}
+.rhs {
+  text-align: end;
+  div {
+    font-size: 18px;
   }
-  .rhs.col {
-    color: $white-3;
-    padding-right: 2rem;
-  }
-  .rhs {
-    text-align: end;
-    div {
-      font-size: 18px;
-    }
-  }
-
+}
 </style>

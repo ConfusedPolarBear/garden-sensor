@@ -3,29 +3,9 @@
     <p>Systems:</p>
     <v-data-table :items="$store.state.systems" :headers="headers">
       <template v-slot:[`item.Identifier`]="{ item }">
-        <router-link :to="'/graph/' + item.Identifier">
+        <router-link :to="`/system/${item.Identifier}`">
           <code>{{ item.Identifier }}</code>
         </router-link>
-      </template>
-
-      <template v-slot:[`item.Connection`]="{ item }">
-        <div class="readingData">
-          <tooltip :text="meshInfo(item, 'tooltip')">
-            <v-icon>
-              {{ meshInfo(item, "icon") }}
-            </v-icon>
-          </tooltip>
-
-          <span v-if="showSystemTypes" style="margin-left: 1rem">
-            <tooltip text="Virtual">
-              <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
-            </tooltip>
-
-            <tooltip text="Physical">
-              <v-icon v-if="!isEmulator(item)">mdi-memory</v-icon>
-            </tooltip>
-          </span>
-        </div>
       </template>
 
       <template v-slot:[`item.Connection`]="{ item }">
@@ -123,7 +103,8 @@
 
 <script lang="ts">
 import Vue from "vue";
-import api, { GardenSystem, GardenSystemInfo } from "@/plugins/api";
+import api from "@/plugins/api";
+import { GardenSystem, GardenSystemInfo } from "@/store/types";
 import { MutationPayload } from "vuex";
 
 import Tooltip from "@/components/Tooltip.vue";
