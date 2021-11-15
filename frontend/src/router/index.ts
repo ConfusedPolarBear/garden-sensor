@@ -25,8 +25,8 @@ const routes: Array<RouteConfig> = [
     component: Graph
   },
   {
-    path: "/systeminfo/:id",
-    name: "systeminfo",
+    path: "/system/:id",
+    name: "system",
     component: SystemInfo
   },
   {
