@@ -3,7 +3,7 @@
     <p>Systems:</p>
     <v-data-table :items="$store.state.systems" :headers="headers">
       <template v-slot:[`item.Identifier`]="{ item }">
-        <router-link :to="'/systeminfo/' + item.Identifier">
+        <router-link :to="'/system/' + item.Identifier">
           <code>{{ item.Identifier }}</code>
         </router-link>
       </template>
