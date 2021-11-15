@@ -1,8 +1,8 @@
 <template>
   <v-card v-ripple class="parent">
-    <v-row no-gutters
-      ><v-icon class="icon">{{ icon }}</v-icon></v-row
-    >
+    <v-row no-gutters>
+        <v-icon class="icon">{{ icon }}</v-icon>
+    </v-row>
     <v-row no-gutters
       ><div class="name">{{ name }}</div></v-row
     >
