@@ -30,7 +30,7 @@ void setup() {
     }
 
     Serial << "Press 's' to start setup" << endl;
-    delay(2000);
+    delay(500);
 
     // If the user wants to enter setup or if the system has not been configured, wait for configuration data
     if (Serial.read() == 's' || !configured) {
@@ -318,6 +318,11 @@ void processCommand(String command) {
         changed = true;
     }
 
+    if (data.containsKey("MeshKey")) {
+        WriteFile(FILE_MESH_KEY, data["MeshKey"]);
+        changed = true;
+    }
+
     if (data.containsKey("MeshPeers")) {
         String peers = data["MeshPeers"];
         String current = ReadFile(FILE_MESH_PEERS);
@@ -349,7 +354,7 @@ void processCommand(String command) {
         LOGD("cmnd", "wifi and mqtt are configured, setting flag");
         SetConfigured(true);
 
-    } else if (FileExists(FILE_MESH_CONTROLLER) || FileExists(FILE_MESH_PEERS)) {
+    } else if ((FileExists(FILE_MESH_CONTROLLER) || FileExists(FILE_MESH_PEERS)) && FileExists(FILE_MESH_KEY)) {
         LOGD("cmnd", "mesh is configured, setting flag");
         SetConfigured(true);
 

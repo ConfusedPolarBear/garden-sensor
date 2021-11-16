@@ -154,6 +154,7 @@ bool addMeshPeer(String mac) {
 }
 
 void publishMeshRaw(uint8_t* address, uint8_t* data) {
+    // Messages sent with publishMesh() are always padded to 250 bytes (with 0x00).
     esp_now_send(address, data, 250);
 }
 
@@ -200,19 +201,19 @@ bool publishMesh(String message, String topic) {
         uint8_t wirePayload[250];
         memzero(wirePayload, 250);
 
-        // Bytes 0 - 3 are the correlation ID
+        // Bytes 0 - 3 are the correlation ID.
         for (unsigned int i = 0; i < 4; i++) {
             wirePayload[3-i] = (correlation >> (i*8)) & 0xff;
         }
 
-        // Byte 4 is the packet number
+        // Byte 4 is the packet number.
         wirePayload[4] = number;
 
-        // Byte 5 is the total number of packets
+        // Byte 5 is the total number of packets.
         wirePayload[5] = total;
 
-        // Bytes 6 - 250 are the payload
-        for(unsigned int i = 0; i <= 244; i++) {
+        // Bytes 6 - 218 are the payload.
+        for(unsigned int i = 0; i < 212; i++) {
             if (i+1 > payload.length()) {
                 // Once there's no more remaining data in the payload, the entire payload has been sent
                 done = true;
@@ -222,12 +223,18 @@ bool publishMesh(String message, String topic) {
             wirePayload[6+i] = payload.charAt(i);
         }
 
-        payload = payload.substring(244, payload.length());
+        // On both the 8266 and the 32, the substring call checks if the string is shorter than the left position
+        // and returns "" if true.
+        payload = payload.substring(210, payload.length());
+
+        // Bytes 218 - 249 are the SHA256 HMAC of all preceeding data. 250 bytes.
+        uint8_t* auth = hmac(wirePayload, 217);
+        for (int i = 0; i <= 32; i++) { wirePayload[i + 217] = auth[i]; }
+        free(auth);
 
         #ifdef TRACE_PACKETS
         // Dump packet for debugging
         LOGD("mesh", "marshalled packet into wire format");
-        int nulls = 0;
         for (unsigned int i = 0; i < 250; i++) {
             switch(i) {
                 case 0:
@@ -245,6 +252,9 @@ bool publishMesh(String message, String topic) {
                 case 6:
                     LOGD("mesh", "payload");
                     break;
+
+                case 217:
+                    LOGD("mesh", "hmac");
             }
 
             uint8_t c = wirePayload[i];
@@ -262,17 +272,10 @@ bool publishMesh(String message, String topic) {
             }
 
             LOGD("mesh", "payload byte " + index + " is " + body + " (" + char(c) + ")");
-
-            if (c == 0) {
-                if (nulls++ >= 5) {
-                    break;
-                }
-            }
         }
         #endif
 
         // Send it
-        // TODO: retransmit packets 2x or 3x with a delay in between
         broadcastMesh(wirePayload);
 
         number++;
@@ -287,19 +290,46 @@ void meshSendCallbackHandler(const uint8_t* mac, bool success) {
 
 void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int length) {
 	String payload;
-	Serial << endl << "ESP-NOW message received with " << length << " bytes of payload" << endl;
+
+    if (length != 250) {
+        LOGD("mesh", "discarding mesh message: length != 250");
+        return;
+    }
 
     char strMacRaw[20];
     memzero(strMacRaw, 20);
     sprintf(strMacRaw, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     String strMac = String(strMacRaw);
 
-    LOGD("mesh", "message from " + strMac);
+    LOGD("mesh", "received message from " + strMac);
 	for (int i = 0; i < length; ++i) {
 		const char b = static_cast<char>(buf[i]);
 		payload += b;
   	}
-    LOGD("mesh", "message payload is " + payload);
+
+    // Copy the incoming (or actual) hmac out of the buffer for later verification.
+    uint8_t actualHmac[32];
+    for (int i = 0; i < 32; i++) { actualHmac[i] = buf[i + 217]; }
+
+    // Calculate what the HMAC should be & compare them.
+    uint8_t* expectedHmac = hmac(buf, 217);
+
+    const bool hmacOk = hmacCompare(expectedHmac, actualHmac);
+
+    if (!hmacOk) {
+        LOGW("mesh", "discarding mesh message: authentication failed");
+
+        LOGD("mesh", "packet hmac:   " + arrayToString(actualHmac, 32));
+        LOGD("mesh", "expected hmac: " + arrayToString(expectedHmac, 32));
+
+        free(expectedHmac);
+        return;
+
+    } else {
+        LOGD("mesh", "accepting mesh message");
+    }
+
+    free(expectedHmac);
 
     if (!controller) {
         // If this is a command packet directed to us, handle it without rebroadcasting it.
@@ -316,7 +346,6 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
         // If this is not a command packet directed at us OR it is a broadcast, rebroadcast the mesh message
         if (!isDirect || isBroadcast) {
             // Since this is a client, rebroadcast the packet to all peers *except* the sending device.
-            #warning validate that broadcast length is 250
             broadcastMesh(const_cast<uint8_t*>(buf), strMac);
         }
 
@@ -327,9 +356,10 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
             LOGD("mesh", "handling command '" + payload + "'");
             processCommand(payload);
         }
-        
+
     } else {
-        // If this is the controller, send the packet over MQTT.
+        // If this is the controller, send the packet over MQTT. Use substring to remove the HMAC.
+        payload = payload.substring(0, 216);
 	    publish(payload, "packet");
     }
 }

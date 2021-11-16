@@ -18,6 +18,7 @@
 #include <Streaming.h>
 #include <Wire.h>
 
+#include <crypto.h>
 #include <filesystem.h>
 #include <logger.h>
 #include <mesh.h>
@@ -36,6 +37,7 @@
 #define FILE_MESH_CONTROLLER "/meshController"
 #define FILE_MESH_PEERS      "/meshPeers"
 #define FILE_MESH_CHANNEL    "/meshChannel"
+#define FILE_MESH_KEY        "/meshKey"
 
 // ========== Command handling ==========
 // Checks if the Serial connection has a command. If it does, handle it.
