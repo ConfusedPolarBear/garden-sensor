@@ -17,7 +17,7 @@ void startAccessPoint(int channel) {
 
     String apPass = secureRandomNonce();
 
-    LOGD("ap", "Starting access point on channel " + String(channel) + ". SSID: " + apSsid + ", PSK: " + apPass);
+    LOGD("ap", "Starting access point on channel " + String(channel) + ". SSID: " + apSsid);
     WiFi.softAP(apSsid.c_str(), apPass.c_str(), channel, 1, 0);       // ssid, psk, channel, hidden, max connections
 }
 

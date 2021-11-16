@@ -313,27 +313,21 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
         bool isDirect = payload.indexOf(directFlag) != -1;
         bool isBroadcast = payload.indexOf(broadcastFlag) != -1;
 
-        bool rebroadcast = true;
+        // If this is not a command packet directed at us OR it is a broadcast, rebroadcast the mesh message
+        if (!isDirect || isBroadcast) {
+            // Since this is a client, rebroadcast the packet to all peers *except* the sending device.
+            #warning validate that broadcast length is 250
+            broadcastMesh(const_cast<uint8_t*>(buf), strMac);
+        }
 
+        // If this is a directed or broadcast command, handle it.
         if (isDirect || isBroadcast) {
-            // This is a command packet addressed to us, handle it.
             payload = payload.substring(6, payload.length());
 
             LOGD("mesh", "handling command '" + payload + "'");
             processCommand(payload);
-
-            // Direct commands don't need to be rebroadcast, since we're handling it.
-            if (isDirect) { rebroadcast = false; }
         }
-
-        if (!rebroadcast) {
-            return;
-        }
-
-        // Since this is a client, rebroadcast the packet to all peers *except* the sending device.
-        #warning validate that broadcast length is 250
-        broadcastMesh(const_cast<uint8_t*>(buf), strMac);
-
+        
     } else {
         // If this is the controller, send the packet over MQTT.
 	    publish(payload, "packet");

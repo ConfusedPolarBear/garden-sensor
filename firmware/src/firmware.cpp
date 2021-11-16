@@ -82,6 +82,15 @@ void setup() {
         Serial << "\tController:    " << meshController << endl;
     }
 
+    #ifdef ESP8266
+    // Without these four lines of code, the Wi-Fi radio won't come out of deep sleep correctly.
+    // This is a bug in the ESP8266 SDK.
+    WiFi.forceSleepBegin();
+    delay(1);
+    WiFi.forceSleepWake();
+    delay(1);
+    #endif
+
     // If this is a controller, connect to dedicated Wi-Fi network. If this is a client, just setup an access point.
     WiFi.mode(WIFI_AP_STA);	// clients are put into ap_sta mode so they can join a network if needed for updates.
     if (WiFi.setSleep(false)) {
@@ -153,7 +162,7 @@ void loop() {
     // Publish sensor data
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
-    if (!isController && millis() - lastPublish >= 10 * 1000) {
+    if (!isController && millis() - lastPublish >= 60 * 1000) {
         sensorData reading = getSensorData();
 
         StaticJsonDocument<100> json;
@@ -218,6 +227,42 @@ void processCommand(String command) {
             }
 
             publishMesh(payload, "");
+
+            // If this is a broadcast message, handle it after rebroadcasting it.
+            if (payload.indexOf("dst-FFFFFFFFFFFF") != -1) {
+                processCommand(payload);
+            }
+        }
+
+        else if (command == "listpeers") {
+            publish(ReadFile(FILE_MESH_PEERS), "peers");
+        }
+
+        else if (command == "ping") {
+            publish("pong", "ping");
+        }
+
+        else if (command == "sleep") {
+            // Deep sleep for X seconds
+            int period = data["Period"];
+
+            // Ensure that if a sleep period <= 0 is passed, it is changed to 1. Passing 0 to a deep sleep function will
+            // result in an infinite sleep.
+            period = max(period, 1);
+
+            if (isController && !data["IncludeController"]) {
+                LOGW("sleep", "controller received sleep message but IncludeController was not set - ignoring");
+                return;
+            }
+
+            LOGD("sleep", "entering deep sleep for " + String(period) + " seconds");
+
+            // Immediately sleep the chip for `period` seconds. Does not gracefully terminate Wi-Fi connections.
+            #ifdef ESP32
+            esp_deep_sleep(period * 1e6);
+            #else
+            ESP.deepSleep(period * 1e6, RF_DISABLED);
+            #endif
         }
 
         else {
