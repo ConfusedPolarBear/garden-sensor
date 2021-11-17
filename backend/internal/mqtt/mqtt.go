@@ -135,6 +135,15 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		Sensors             []util.Sensor
 	}
 
+	// Minified mesh statistics
+	type miniMesh struct {
+		TotalSent          int `json:"SE"`
+		TotalReceived      int `json:"RC"`
+		DroppedBadLength   int `json:"DL"`
+		DroppedInvalidAuth int `json:"DA"`
+		TotalAccepted      int `json:"AC"`
+	}
+
 	logrus.Debugf("[mqtt] Message from %s: %s: %s\n", client, topic, payload)
 
 	// Handle discovery messages
@@ -311,6 +320,20 @@ func handleMqttMessage(client, topic string, payload []byte) {
 			if handle {
 				handleMqttMessage(clientId, first.Topic, meshPayload)
 			}
+
+		} else if strings.HasSuffix(topic, "/ping") {
+			// A system has sent a pong in response to a ping, nothing else needs to be updated.
+
+		} else if strings.HasSuffix(topic, "/mesh") {
+			// Mesh statistics
+			var stats miniMesh
+			if err := json.Unmarshal(payload, &stats); err != nil {
+				logrus.Warnf("[mqtt] unable to unmarshal mesh statistics: %s", err)
+				return
+			}
+
+			// TODO: store & expose to the frontend
+			logrus.Printf("mesh stats for %s: %#v", client, stats)
 
 		} else {
 			logrus.Warnf("[mqtt] unhandled MQTT topic: %s", topic)

@@ -2,6 +2,23 @@
 
 #include <Arduino.h>
 
+struct meshStatistics {
+    // Total messages sent by this system.
+    int sent;
+
+    // Total messages received.
+    int received;
+
+    // Total messages dropped due to being short (< 250 bytes).
+    int droppedLength;
+
+    // Total messages dropped due to a bad HMAC.
+    int droppedAuth;
+
+    // Total messages accepted for processing.
+    int accepted;
+};
+
 int loadPeers();
 bool isKnownPeer(String needle);
 bool publishMesh(String data, String topic);
@@ -25,3 +42,6 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
 
 // Broadcast a message to all paired nodes except one.
 void broadcastMesh(uint8_t* data, String exclude = "");
+
+// Return the latest statistics about the local mesh performance.
+meshStatistics getStatistics();

@@ -162,7 +162,28 @@ void loop() {
     // Publish sensor data
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
-    if (!isController && millis() - lastPublish >= 60 * 1000) {
+    if (millis() - lastPublish >= 60 * 1000) {
+        String strReading;
+
+        StaticJsonDocument<100> mesh;
+        meshStatistics stats = getStatistics();
+
+        mesh["SE"] = stats.sent;
+        mesh["RC"] = stats.received;
+        mesh["DL"] = stats.droppedLength;
+        mesh["DA"] = stats.droppedAuth;
+        mesh["AC"] = stats.accepted;
+        serializeJson(mesh, strReading);
+        publish(strReading, "mesh");
+        
+        strReading = "";
+
+        lastPublish = millis();
+
+        if (isController) {
+            return;
+        }
+
         sensorData reading = getSensorData();
 
         StaticJsonDocument<100> json;
@@ -170,12 +191,9 @@ void loop() {
         json["Temperature"] = reading.temperature;
         json["Humidity"] = reading.humidity;
 
-        String strReading;
         serializeJson(json, strReading);
 
         publish(strReading);
-
-        lastPublish = millis();
     }
 }
 

@@ -4,6 +4,7 @@ std::vector<String> peers;
 std::vector<String> paired;
 bool controller;
 int channel;
+meshStatistics stats;
 
 #ifdef ESP32
 void meshSendCallback(const uint8_t* mac, esp_now_send_status_t status) {
@@ -176,6 +177,8 @@ void broadcastMesh(uint8_t* data, String exclude) {
         LOGD("mesh", "sending packet to " + mac);
         publishMeshRaw(address, data);
     }
+
+    stats.sent++;
 }
 
 bool publishMesh(String message, String topic) {
@@ -291,8 +294,11 @@ void meshSendCallbackHandler(const uint8_t* mac, bool success) {
 void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int length) {
 	String payload;
 
+    stats.received++;
+
     if (length != 250) {
         LOGD("mesh", "discarding mesh message: length != 250");
+        stats.droppedLength++;
         return;
     }
 
@@ -323,6 +329,8 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
         LOGD("mesh", "expected hmac: " + arrayToString(expectedHmac, 32));
 
         free(expectedHmac);
+        stats.droppedAuth++;
+
         return;
 
     } else {
@@ -330,6 +338,7 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
     }
 
     free(expectedHmac);
+    stats.accepted++;
 
     if (!controller) {
         // If this is a command packet directed to us, handle it without rebroadcasting it.
@@ -378,4 +387,8 @@ bool isKnownPeer(String needle) {
     }
 
     return false;
+}
+
+meshStatistics getStatistics() {
+    return stats;
 }
