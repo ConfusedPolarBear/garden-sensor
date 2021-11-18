@@ -34,12 +34,10 @@ String arrayToString(const uint8_t* raw, size_t length) {
 uint8_t* hmac(const uint8_t* data, size_t dataLength) {
     if (_hmacKey == "") { loadKey(); }
 
-    void* result = malloc(32);
+    void* result = calloc(32, sizeof(uint8_t));
     if (result == NULL) {
         LOGF("crypto", "unable to allocate memory");
     }
-
-    memzero(result, 32);
 
     mbedtls_md_context_t ctx;
     mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
@@ -76,12 +74,10 @@ uint8_t* hmac(const uint8_t* data, const size_t dataLength) {
 
     if (_hmacKey == "") { loadKey(); }
 
-    void* result = malloc(32);
+    void* result = calloc(32, sizeof(uint8_t));
     if (result == NULL) {
         LOGF("crypto", "unable to allocate memory");
     }
-
-    memzero(result, 32);
 
     SHA256::hmac(data, dataLength, _hmacKey.c_str(), _hmacKey.length(), result, 32);
 
