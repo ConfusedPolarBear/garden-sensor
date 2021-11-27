@@ -84,6 +84,20 @@
         </span>
       </template>
     </v-data-table>
+    <br />
+
+    <span>Send command to:</span>
+    <br />
+    <span v-for="sys in $store.state.systems" :key="sys.Identifier">
+      <a href="#" @click="sendCommand(sys.Identifier)">
+        <code>{{ sys.Identifier }}</code>
+        <br />
+      </a>
+    </span>
+    <a href="#" @click="sendCommand('FFFFFFFFFFFF')">
+      <code>All systems</code>
+      <br />
+    </a>
 
     <v-btn
       @click="$router.push('/configure')"
@@ -96,8 +110,17 @@
     </v-btn>
 
     <br />
-    <h2>Temporary settings menu</h2>
-    <v-switch v-model="fahrenheit" label="Use Farenheit" />
+    <div style="max-width: 300px">
+      <h2>Temporary settings menu</h2>
+      <v-switch v-model="fahrenheit" label="Use Farenheit" />
+    </div>
+
+    <command-dialog
+      @command="sendCommandHandler"
+      @close="command.show = false"
+      :id="command.id"
+      :show="command.show"
+    />
   </v-container>
 </template>
 
@@ -107,11 +130,12 @@ import api from "@/plugins/api";
 import { GardenSystem, GardenSystemInfo } from "@/store/types";
 import { MutationPayload } from "vuex";
 
+import CommandDialog from "@/components/CommandDialog.vue";
 import Tooltip from "@/components/Tooltip.vue";
 
 export default Vue.extend({
   name: "Systems",
-  components: { Tooltip },
+  components: { CommandDialog, Tooltip },
   data() {
     return {
       headers: [
@@ -141,7 +165,12 @@ export default Vue.extend({
       ],
       systems: Array<GardenSystem>(),
       showSystemTypes: false,
-      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F"
+      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F",
+
+      command: {
+        id: "",
+        show: false
+      }
     };
   },
   methods: {
@@ -221,6 +250,22 @@ export default Vue.extend({
       }
 
       return `${reading.toFixed(2)} °${units}`;
+    },
+
+    sendCommand(id: string) {
+      this.command.id = id;
+      this.command.show = true;
+    },
+    sendCommandHandler(data: any) {
+      const id = data.id;
+      const command = data.command;
+
+      api(`/system/command/${id}`, {
+        method: "POST",
+        body: new URLSearchParams({
+          command: command
+        })
+      });
     }
   },
   created() {
@@ -229,7 +274,7 @@ export default Vue.extend({
     // Periodically force the page to update in order to keep the last seen timestamps fresh for all systems.
     setInterval(() => {
       this.$forceUpdate();
-    }, 60 * 1000);
+    }, 5 * 1000);
   },
   watch: {
     fahrenheit() {

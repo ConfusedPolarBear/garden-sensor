@@ -17,6 +17,8 @@ void setup() {
 
     Mount();
 
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_AP_STA);
     Serial << "Mesh MAC address: " << WiFi.softAPmacAddress() << endl;
 
     // Check if the system has been configured
@@ -91,8 +93,6 @@ void setup() {
     delay(1);
     #endif
 
-    // If this is a controller, connect to dedicated Wi-Fi network. If this is a client, just setup an access point.
-    WiFi.mode(WIFI_AP_STA);	// clients are put into ap_sta mode so they can join a network if needed for updates.
     if (WiFi.setSleep(false)) {
         LOGD("wifi", "wifi sleep disabled");
     } else {

@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ConfusedPolarBear/garden/internal/api"
 	"github.com/ConfusedPolarBear/garden/internal/config"
 	"github.com/ConfusedPolarBear/garden/internal/db"
 	"github.com/ConfusedPolarBear/garden/internal/util"
+	"github.com/ConfusedPolarBear/garden/internal/websocket"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
@@ -163,13 +163,17 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		}
 
 		info := util.GardenSystemInfo(miniInfo)
-		err := db.CreateSystem(util.GardenSystem{
+		system := util.GardenSystem{
+			UpdatedAt:    time.Now(),
 			Identifier:   id,
 			Announcement: info,
-		})
-		if err != nil {
+		}
+
+		if err := db.CreateSystem(system); err != nil {
 			logrus.Errorf("[mqtt] unable to update system: %s", err)
 		}
+
+		websocket.BroadcastWebsocketMessage("update", system)
 
 		return
 	}
@@ -343,7 +347,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 
 	db.UpdateSystem(system)
 
-	api.BroadcastWebsocketMessage("update", system)
+	websocket.BroadcastWebsocketMessage("update", system)
 }
 
 // Subscribe to the provided MQTT topic or panic.

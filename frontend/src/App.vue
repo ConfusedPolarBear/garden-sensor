@@ -133,7 +133,7 @@ export default Vue.extend({
 });
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 // Apply source sans pro to all content in the app
 .root {
   [class*="text-"] {
@@ -162,5 +162,9 @@ div#wsIndicator > * {
 
 #wsErrorText {
   display: inline;
+}
+
+div.v-expansion-panel {
+  border: 1px solid gray;
 }
 </style>
