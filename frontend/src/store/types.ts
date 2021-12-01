@@ -28,6 +28,10 @@ export type GardenSystemInfo = {
 
   // If this system is connected through the mesh or MQTT.
   IsMesh: boolean;
+
+  // Channel that the Wi-Fi station uses. Only valid if this is a mesh controller.
+  Channel: number;
+
   RestartReason: string;
 
   CoreVersion: string;

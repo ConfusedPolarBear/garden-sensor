@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ConfusedPolarBear/garden/internal/api"
 	"github.com/ConfusedPolarBear/garden/internal/config"
 	"github.com/ConfusedPolarBear/garden/internal/db"
 	"github.com/ConfusedPolarBear/garden/internal/util"
+	"github.com/ConfusedPolarBear/garden/internal/websocket"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
@@ -126,12 +126,22 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		GardenSystemID      string
 		IsEmulator          bool
 		IsMesh              bool   `json:"ME"`
+		Channel             int    `json:"CH"`
 		RestartReason       string `json:"RR"`
 		CoreVersion         string `json:"CV"`
 		SdkVersion          string `json:"SV"`
 		FilesystemUsedSize  int    `json:"FU"`
 		FilesystemTotalSize int    `json:"FT"`
 		Sensors             []util.Sensor
+	}
+
+	// Minified mesh statistics
+	type miniMesh struct {
+		TotalSent          int `json:"SE"`
+		TotalReceived      int `json:"RC"`
+		DroppedBadLength   int `json:"DL"`
+		DroppedInvalidAuth int `json:"DA"`
+		TotalAccepted      int `json:"AC"`
 	}
 
 	logrus.Debugf("[mqtt] Message from %s: %s: %s\n", client, topic, payload)
@@ -153,13 +163,17 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		}
 
 		info := util.GardenSystemInfo(miniInfo)
-		err := db.CreateSystem(util.GardenSystem{
+		system := util.GardenSystem{
+			UpdatedAt:    time.Now(),
 			Identifier:   id,
 			Announcement: info,
-		})
-		if err != nil {
+		}
+
+		if err := db.CreateSystem(system); err != nil {
 			logrus.Errorf("[mqtt] unable to update system: %s", err)
 		}
+
+		websocket.BroadcastWebsocketMessage("update", system)
 
 		return
 	}
@@ -311,6 +325,20 @@ func handleMqttMessage(client, topic string, payload []byte) {
 				handleMqttMessage(clientId, first.Topic, meshPayload)
 			}
 
+		} else if strings.HasSuffix(topic, "/ping") {
+			// A system has sent a pong in response to a ping, nothing else needs to be updated.
+
+		} else if strings.HasSuffix(topic, "/mesh") {
+			// Mesh statistics
+			var stats miniMesh
+			if err := json.Unmarshal(payload, &stats); err != nil {
+				logrus.Warnf("[mqtt] unable to unmarshal mesh statistics: %s", err)
+				return
+			}
+
+			// TODO: store & expose to the frontend
+			logrus.Printf("mesh stats for %s: %#v", client, stats)
+
 		} else {
 			logrus.Warnf("[mqtt] unhandled MQTT topic: %s", topic)
 			return
@@ -319,7 +347,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 
 	db.UpdateSystem(system)
 
-	api.BroadcastWebsocketMessage("update", system)
+	websocket.BroadcastWebsocketMessage("update", system)
 }
 
 // Subscribe to the provided MQTT topic or panic.

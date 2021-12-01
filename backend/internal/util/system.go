@@ -31,7 +31,11 @@ type GardenSystemInfo struct {
 	IsEmulator bool
 
 	// If this system is connected through the mesh or MQTT.
-	IsMesh        bool
+	IsMesh bool
+
+	// The channel that the Wi-Fi station uses. Only valid if this is the controller.
+	// For the mesh to be reliable, it must use the same channel as Wi-Fi.
+	Channel       int
 	RestartReason string
 
 	CoreVersion string

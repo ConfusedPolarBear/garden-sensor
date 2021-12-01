@@ -17,7 +17,7 @@ void startAccessPoint(int channel) {
 
     String apPass = secureRandomNonce();
 
-    LOGD("ap", "Starting access point on channel " + String(channel) + ". SSID: " + apSsid + ", PSK: " + apPass);
+    LOGD("ap", "Starting access point on channel " + String(channel) + ". SSID: " + apSsid);
     WiFi.softAP(apSsid.c_str(), apPass.c_str(), channel, 1, 0);       // ssid, psk, channel, hidden, max connections
 }
 
@@ -115,9 +115,12 @@ void sendDiscoveryMessage(bool useMqtt) {
         info["FT"] = fsInfo.totalBytes;
     }
 
+    // If this uses the mesh or not. If not (i.e. connected through MQTT), report the wifi channel.
     info["ME"] = !useMqtt;
+    if (useMqtt) {
+        info["CH"] = WiFi.channel();
+    }
 
-    #warning TODO: populate the list of sensors from the sensors the backend said we have at programming time
     JsonArray sensors = info.createNestedArray("Sensors");
     sensors.add("temperature");
     sensors.add("humidity");

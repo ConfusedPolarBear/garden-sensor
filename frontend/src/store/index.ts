@@ -19,9 +19,8 @@ export default new Vuex.Store<StoreState>({
         }
       }
 
-      throw new Error(
-        `Unable to find client with identifier ${newClient.Identifier}`
-      );
+      // If we get here, it's because this is a new system, append it to the end of the array.
+      state.systems.push(newClient);
     },
     // A new client has joined the server, add it's information to our local state
     register(state, systems) {
