@@ -5,7 +5,7 @@
       <node-module
           moduleName="Node Module"
           :identifier="sys.Identifier"
-          :isConnected="true"
+          :isConnected="isConnected(sys.UpdatedAt)"
           :timestamp="age(sys.UpdatedAt)"
           :announcement="sys.Announcement"
         />
@@ -181,7 +181,6 @@ export default Vue.extend({
 
       return `${reading.toFixed(2)} °${units}`;
     },
-
     sendCommand(id: string) {
       this.command.id = id;
       this.command.show = true;
@@ -196,6 +195,13 @@ export default Vue.extend({
           command: command
         })
       });
+    },
+    isConnected(lastSeen: string): boolean {
+      let diff = Number(new Date()) - Number(new Date(lastSeen));
+      if (diff > 14999) { // arbitrary number in ms
+        return false;
+      }
+      return true;
     }
   },
   created() {
