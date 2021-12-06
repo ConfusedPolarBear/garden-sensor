@@ -1,4 +1,5 @@
 <template>
+  <router-link :to="'/system/' + identifier" tag="v-card">
   <v-card v-ripple flat class="rounded-0 card">
     <v-row class="parent-row">
       <v-col md="auto" :cols="auto">
@@ -33,6 +34,7 @@
       </v-col>
     </v-row>
   </v-card>
+  </router-link>
 </template>
 
 <script lang="ts">
