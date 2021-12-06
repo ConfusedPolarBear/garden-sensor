@@ -1,6 +1,15 @@
 <template>
   <v-container>
     <p>Systems:</p>
+    <v-container :v-for="system in systems"> // fix this 
+      <node-module
+          moduleName="Node Module"
+          :identifier="$store.state.systems[0].Identifier"
+          isConnected="true"
+          :timestamp="age($store.state.systems[0].UpdatedAt)"
+        />
+    </v-container>
+    <br/>
     <v-data-table :items="$store.state.systems" :headers="headers">
       <template v-slot:[`item.Identifier`]="{ item }">
         <router-link :to="`/system/${item.Identifier}`">
@@ -132,10 +141,13 @@ import { MutationPayload } from "vuex";
 
 import CommandDialog from "@/components/CommandDialog.vue";
 import Tooltip from "@/components/Tooltip.vue";
+import NodeModule from "@/components/NodeModule.vue";
 
 export default Vue.extend({
   name: "Systems",
-  components: { CommandDialog, Tooltip },
+  components: { CommandDialog, Tooltip, NodeModule },
+  // components: { CommandDialog },
+  // state
   data() {
     return {
       headers: [
@@ -173,6 +185,7 @@ export default Vue.extend({
       }
     };
   },
+  // actions
   methods: {
     load(): void {
       // Load all initial systems.
@@ -208,7 +221,7 @@ export default Vue.extend({
     age(lastSeen: string): string {
       let diff = Number(new Date()) - Number(new Date(lastSeen));
       diff = Number(diff) / 1000;
-      return `last seen ${diff.toFixed(0)} seconds ago`;
+      return `${diff.toFixed(0)}`;
     },
     isEmulator(system: GardenSystem): boolean {
       return system.Announcement.IsEmulator;
