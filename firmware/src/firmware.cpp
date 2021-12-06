@@ -17,6 +17,8 @@ void setup() {
 
     Mount();
 
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_AP_STA);
     Serial << "Mesh MAC address: " << WiFi.softAPmacAddress() << endl;
 
     // Check if the system has been configured
@@ -30,7 +32,7 @@ void setup() {
     }
 
     Serial << "Press 's' to start setup" << endl;
-    delay(2000);
+    delay(500);
 
     // If the user wants to enter setup or if the system has not been configured, wait for configuration data
     if (Serial.read() == 's' || !configured) {
@@ -62,7 +64,7 @@ void setup() {
             LOGW("mesh", "invalid mesh channel specified, defaulting to 1");
             meshChannel = 1;
         } else {
-            LOGD("mesh", "using mesh channel " + meshChannel);
+            LOGD("mesh", "using mesh channel " + String(meshChannel));
         }
     } else {
         LOGD("mesh", "using default channel of 1");
@@ -82,8 +84,15 @@ void setup() {
         Serial << "\tController:    " << meshController << endl;
     }
 
-    // If this is a controller, connect to dedicated Wi-Fi network. If this is a client, just setup an access point.
-    WiFi.mode(WIFI_AP_STA);	// clients are put into ap_sta mode so they can join a network if needed for updates.
+    #ifdef ESP8266
+    // Without these four lines of code, the Wi-Fi radio won't come out of deep sleep correctly.
+    // This is a bug in the ESP8266 SDK.
+    WiFi.forceSleepBegin();
+    delay(1);
+    WiFi.forceSleepWake();
+    delay(1);
+    #endif
+
     if (WiFi.setSleep(false)) {
         LOGD("wifi", "wifi sleep disabled");
     } else {
@@ -105,6 +114,10 @@ void setup() {
         Serial << "IP address: " << WiFi.localIP() << endl;
 
         connectToBroker(mqttHost, mqttUser, mqttPass);
+
+        // Since ESP-NOW is very unreliable if the channels don't match, force them to match.
+        meshChannel = WiFi.channel();
+        LOGD("mesh", "forcing channel match with channel " + String(meshChannel));
     }
 
     startAccessPoint(meshChannel);
@@ -149,7 +162,28 @@ void loop() {
     // Publish sensor data
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
-    if (!isController && millis() - lastPublish >= 10 * 1000) {
+    if (millis() - lastPublish >= 60 * 1000) {
+        String strReading;
+
+        StaticJsonDocument<100> mesh;
+        meshStatistics stats = getStatistics();
+
+        mesh["SE"] = stats.sent;
+        mesh["RC"] = stats.received;
+        mesh["DL"] = stats.droppedLength;
+        mesh["DA"] = stats.droppedAuth;
+        mesh["AC"] = stats.accepted;
+        serializeJson(mesh, strReading);
+        publish(strReading, "mesh");
+        
+        strReading = "";
+
+        lastPublish = millis();
+
+        if (isController) {
+            return;
+        }
+
         sensorData reading = getSensorData();
 
         StaticJsonDocument<100> json;
@@ -157,12 +191,9 @@ void loop() {
         json["Temperature"] = reading.temperature;
         json["Humidity"] = reading.humidity;
 
-        String strReading;
         serializeJson(json, strReading);
 
         publish(strReading);
-
-        lastPublish = millis();
     }
 }
 
@@ -214,6 +245,42 @@ void processCommand(String command) {
             }
 
             publishMesh(payload, "");
+
+            // If this is a broadcast message, handle it after rebroadcasting it.
+            if (payload.indexOf("dst-FFFFFFFFFFFF") != -1) {
+                processCommand(payload);
+            }
+        }
+
+        else if (command == "listpeers") {
+            publish(ReadFile(FILE_MESH_PEERS), "peers");
+        }
+
+        else if (command == "ping") {
+            publish("pong", "ping");
+        }
+
+        else if (command == "sleep") {
+            // Deep sleep for X seconds
+            int period = data["Period"];
+
+            // Ensure that if a sleep period <= 0 is passed, it is changed to 1. Passing 0 to a deep sleep function will
+            // result in an infinite sleep.
+            period = max(period, 1);
+
+            if (isController && !data["IncludeController"]) {
+                LOGW("sleep", "controller received sleep message but IncludeController was not set - ignoring");
+                return;
+            }
+
+            LOGD("sleep", "entering deep sleep for " + String(period) + " seconds");
+
+            // Immediately sleep the chip for `period` seconds. Does not gracefully terminate Wi-Fi connections.
+            #ifdef ESP32
+            esp_deep_sleep(period * 1e6);
+            #else
+            ESP.deepSleep(period * 1e6, RF_DISABLED);
+            #endif
         }
 
         else {
@@ -256,12 +323,21 @@ void processCommand(String command) {
     }
 
     if (data.containsKey("MeshController")) {
-        WriteFile(FILE_MESH_CONTROLLER, data["MeshController"]);
-        changed = true;
+        String mac = data["MeshController"];
+        uint8_t discard[6];
+        if (parseMac(mac, discard)) {
+            WriteFile(FILE_MESH_CONTROLLER, mac);
+            changed = true; 
+        }
     }
 
     if (data.containsKey("MeshChannel")) {
         WriteFile(FILE_MESH_CHANNEL, data["MeshChannel"]);
+        changed = true;
+    }
+
+    if (data.containsKey("MeshKey")) {
+        WriteFile(FILE_MESH_KEY, data["MeshKey"]);
         changed = true;
     }
 
@@ -296,7 +372,7 @@ void processCommand(String command) {
         LOGD("cmnd", "wifi and mqtt are configured, setting flag");
         SetConfigured(true);
 
-    } else if (FileExists(FILE_MESH_CONTROLLER) || FileExists(FILE_MESH_PEERS)) {
+    } else if ((FileExists(FILE_MESH_CONTROLLER) || FileExists(FILE_MESH_PEERS)) && FileExists(FILE_MESH_KEY)) {
         LOGD("cmnd", "mesh is configured, setting flag");
         SetConfigured(true);
 

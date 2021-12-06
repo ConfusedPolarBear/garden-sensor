@@ -118,6 +118,17 @@ func GetAllSystems() []util.GardenSystem {
 	return systems
 }
 
+func GetCoordinator() (util.GardenSystem, error) {
+	// Coordinators are systems that report a channel and are not connected through the mesh.
+	var id string
+
+	db.
+		Raw("SELECT garden_system_id FROM garden_system_infos WHERE is_mesh = false AND channel >= 1 LIMIT 1").
+		Scan(&id)
+
+	return GetSystem(id, false)
+}
+
 func UpdateSystem(system util.GardenSystem) error {
 	return db.Save(&system).Error
 }

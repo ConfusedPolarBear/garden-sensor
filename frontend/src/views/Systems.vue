@@ -3,29 +3,9 @@
     <p>Systems:</p>
     <v-data-table :items="$store.state.systems" :headers="headers">
       <template v-slot:[`item.Identifier`]="{ item }">
-        <router-link :to="'/graph/' + item.Identifier">
+        <router-link :to="`/system/${item.Identifier}`">
           <code>{{ item.Identifier }}</code>
         </router-link>
-      </template>
-
-      <template v-slot:[`item.Connection`]="{ item }">
-        <div class="readingData">
-          <tooltip :text="meshInfo(item, 'tooltip')">
-            <v-icon>
-              {{ meshInfo(item, "icon") }}
-            </v-icon>
-          </tooltip>
-
-          <span v-if="showSystemTypes" style="margin-left: 1rem">
-            <tooltip text="Virtual">
-              <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
-            </tooltip>
-
-            <tooltip text="Physical">
-              <v-icon v-if="!isEmulator(item)">mdi-memory</v-icon>
-            </tooltip>
-          </span>
-        </div>
       </template>
 
       <template v-slot:[`item.Connection`]="{ item }">
@@ -104,6 +84,20 @@
         </span>
       </template>
     </v-data-table>
+    <br />
+
+    <span>Send command to:</span>
+    <br />
+    <span v-for="sys in $store.state.systems" :key="sys.Identifier">
+      <a href="#" @click="sendCommand(sys.Identifier)">
+        <code>{{ sys.Identifier }}</code>
+        <br />
+      </a>
+    </span>
+    <a href="#" @click="sendCommand('FFFFFFFFFFFF')">
+      <code>All systems</code>
+      <br />
+    </a>
 
     <v-btn
       @click="$router.push('/configure')"
@@ -116,21 +110,32 @@
     </v-btn>
 
     <br />
-    <h2>Temporary settings menu</h2>
-    <v-switch v-model="fahrenheit" label="Use Farenheit" />
+    <div style="max-width: 300px">
+      <h2>Temporary settings menu</h2>
+      <v-switch v-model="fahrenheit" label="Use Farenheit" />
+    </div>
+
+    <command-dialog
+      @command="sendCommandHandler"
+      @close="command.show = false"
+      :id="command.id"
+      :show="command.show"
+    />
   </v-container>
 </template>
 
 <script lang="ts">
 import Vue from "vue";
-import api, { GardenSystem, GardenSystemInfo } from "@/plugins/api";
+import api from "@/plugins/api";
+import { GardenSystem, GardenSystemInfo } from "@/store/types";
 import { MutationPayload } from "vuex";
 
+import CommandDialog from "@/components/CommandDialog.vue";
 import Tooltip from "@/components/Tooltip.vue";
 
 export default Vue.extend({
   name: "Systems",
-  components: { Tooltip },
+  components: { CommandDialog, Tooltip },
   data() {
     return {
       headers: [
@@ -160,7 +165,12 @@ export default Vue.extend({
       ],
       systems: Array<GardenSystem>(),
       showSystemTypes: false,
-      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F"
+      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F",
+
+      command: {
+        id: "",
+        show: false
+      }
     };
   },
   methods: {
@@ -220,7 +230,7 @@ export default Vue.extend({
 
       switch (item) {
         case "tooltip":
-          return mesh ? "Mesh" : "MQTT";
+          return mesh ? "Mesh" : `MQTT (CH ${system.Announcement.Channel})`;
 
         case "icon":
           return mesh ? "mdi-access-point" : "mdi-wifi";
@@ -240,6 +250,22 @@ export default Vue.extend({
       }
 
       return `${reading.toFixed(2)} °${units}`;
+    },
+
+    sendCommand(id: string) {
+      this.command.id = id;
+      this.command.show = true;
+    },
+    sendCommandHandler(data: any) {
+      const id = data.id;
+      const command = data.command;
+
+      api(`/system/command/${id}`, {
+        method: "POST",
+        body: new URLSearchParams({
+          command: command
+        })
+      });
     }
   },
   created() {
@@ -248,7 +274,7 @@ export default Vue.extend({
     // Periodically force the page to update in order to keep the last seen timestamps fresh for all systems.
     setInterval(() => {
       this.$forceUpdate();
-    }, 60 * 1000);
+    }, 5 * 1000);
   },
   watch: {
     fahrenheit() {
