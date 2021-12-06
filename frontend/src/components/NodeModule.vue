@@ -74,6 +74,7 @@ p a {
 }
 .parent-row {
   padding: 0 2rem;
+  margin: 0;
 }
 .secondary-text {
   color: $white-4;
