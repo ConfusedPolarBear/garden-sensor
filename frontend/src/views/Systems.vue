@@ -1,99 +1,17 @@
 <template>
   <v-container>
     <p>Systems:</p>
-    <v-container :v-for="system in systems"> // fix this 
+    <div class="module-list-container" v-for="sys in $store.state.systems" :key="sys.Identifier">
       <node-module
           moduleName="Node Module"
-          :identifier="$store.state.systems[0].Identifier"
-          isConnected="true"
-          :timestamp="age($store.state.systems[0].UpdatedAt)"
+          :identifier="sys.Identifier"
+          :isConnected="true"
+          :timestamp="age(sys.UpdatedAt)"
+          :announcement="sys.Announcement"
         />
-    </v-container>
+    </div>
+    
     <br/>
-    <v-data-table :items="$store.state.systems" :headers="headers">
-      <template v-slot:[`item.Identifier`]="{ item }">
-        <router-link :to="`/system/${item.Identifier}`">
-          <code>{{ item.Identifier }}</code>
-        </router-link>
-      </template>
-
-      <template v-slot:[`item.Connection`]="{ item }">
-        <div class="readingData">
-          <tooltip :text="meshInfo(item, 'tooltip')">
-            <v-icon>
-              {{ meshInfo(item, "icon") }}
-            </v-icon>
-          </tooltip>
-
-          <span v-if="showSystemTypes" style="margin-left: 1rem">
-            <tooltip text="Virtual">
-              <v-icon v-if="isEmulator(item)">mdi-progress-wrench</v-icon>
-            </tooltip>
-
-            <tooltip text="Physical">
-              <v-icon v-if="!isEmulator(item)">mdi-memory</v-icon>
-            </tooltip>
-          </span>
-        </div>
-      </template>
-
-      <template v-slot:[`item.LastReading`]="{ item }">
-        <div id="reading" v-if="dataValid(item.UpdatedAt)">
-          <tooltip
-            v-if="item.LastReading.Error"
-            text="Error retrieving sensor data"
-          >
-            <v-icon color="red">mdi-alert</v-icon>
-          </tooltip>
-
-          <div v-if="!item.LastReading.Error">
-            <div
-              class="readingData"
-              v-if="isReadingValid(item.LastReading.Temperature)"
-            >
-              <tooltip text="Temperature">
-                <v-icon>mdi-thermometer</v-icon>
-                <span>{{ temp(item.LastReading.Temperature) }}</span>
-              </tooltip>
-            </div>
-
-            <div
-              class="readingData"
-              v-if="isReadingValid(item.LastReading.Humidity)"
-            >
-              <tooltip text="Humidity">
-                <v-icon>mdi-water-percent</v-icon>
-                <span>{{ item.LastReading.Humidity.toFixed(2) }} %</span>
-              </tooltip>
-            </div>
-          </div>
-          <div class="readingData" v-else>
-            <span class="red--text">Error retrieving sensor data</span>
-          </div>
-        </div>
-        <div id="reading" v-else>
-          <v-icon>mdi-clock</v-icon>
-          <span>has not reported data yet</span>
-        </div>
-      </template>
-
-      <template v-slot:[`item.UpdatedAt`]="{ item }">
-        <div class="readingData">
-          <v-icon style="margin-right: 0.5rem">mdi-clock</v-icon>
-          <span>{{ age(item.UpdatedAt) }}</span>
-        </div>
-      </template>
-
-      <template v-slot:[`item.Filesystem`]="{ item }">
-        <span v-if="!isEmulator(item)">
-          <div class="readingData">
-            <v-icon>mdi-file-multiple</v-icon>
-            {{ fsInfo(item.Announcement) }}
-          </div>
-        </span>
-      </template>
-    </v-data-table>
-    <br />
 
     <span>Send command to:</span>
     <br />
@@ -140,12 +58,11 @@ import { GardenSystem, GardenSystemInfo } from "@/store/types";
 import { MutationPayload } from "vuex";
 
 import CommandDialog from "@/components/CommandDialog.vue";
-import Tooltip from "@/components/Tooltip.vue";
 import NodeModule from "@/components/NodeModule.vue";
 
 export default Vue.extend({
   name: "Systems",
-  components: { CommandDialog, Tooltip, NodeModule },
+  components: { CommandDialog, NodeModule },
   // components: { CommandDialog },
   // state
   data() {
@@ -298,6 +215,11 @@ export default Vue.extend({
 </script>
 
 <style scoped>
+.module-list-container {
+  overflow: hidden;
+  border-radius: 4px;
+}
+
 div#reading span {
   margin-left: 0.1rem;
   margin-right: 0.1rem;

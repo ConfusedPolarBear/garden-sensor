@@ -15,18 +15,26 @@
         </p>
       </v-col>
       <v-col class="rhs" :align-items="center">
-        <div v-if="isConnected">
-          <h2 class="connected">
-            Connected
-            <v-icon class="icon"> mdi-wifi-check </v-icon>
-          </h2>
-        </div>
-        <div v-else>
-          <h2 class="disconnected">
-            Disconnected
-            <v-icon class="icon"> mdi-wifi-off </v-icon>
-          </h2>
-        </div>
+        <v-container v-if="isConnected">
+            <h2 class="connected">
+              <tooltip :text="meshInfo(announcement)">
+                <span>
+                  Connected
+                  <v-icon class="icon"> mdi-wifi-check </v-icon>
+                </span>
+              </tooltip>
+            </h2>
+        </v-container>
+        <v-container v-else>
+            <h2 class="disconnected">
+              <tooltip :text="meshInfo(announcement)">
+                <span>
+                  Disconnected
+                  <v-icon class="icon"> mdi-wifi-off </v-icon>
+                </span>
+              </tooltip>
+            </h2>
+        </v-container>
         <p class="secondary-text">
           Last pushed {{ timestamp }} seconds ago
           <v-icon class="icon" small> mdi-clock </v-icon>
@@ -39,10 +47,20 @@
 
 <script lang="ts">
 import Vue from "vue";
+import { GardenSystem, GardenSystemInfo } from "@/store/types";
+import Tooltip from "@/components/Tooltip.vue";
+
 
 export default Vue.extend({
   name: "NodeModule",
-  props: ["moduleName", "identifier", "isConnected", "timestamp"]
+  components: { Tooltip },
+  props: ["moduleName", "identifier", "isConnected", "timestamp", "announcement"],
+  methods: {
+    meshInfo(announcement: GardenSystemInfo): any {
+      const mesh = announcement.IsMesh;
+      return mesh ? "Mesh" : `MQTT (CH ${announcement.Channel})`;
+    },
+  }
 });
 </script>
 
