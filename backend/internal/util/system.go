@@ -13,6 +13,7 @@ var SystemIdentifierRegex regexp.Regexp = *regexp.MustCompile("^[a-fA-F0-9]{12}$
 
 type GardenSystem struct {
 	Identifier string `gorm:"primaryKey;notNull"`
+	Name string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	DeletedAt  time.Time
