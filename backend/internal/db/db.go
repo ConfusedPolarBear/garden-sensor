@@ -1,8 +1,6 @@
 package db
 
 import (
-	"github.com/ConfusedPolarBear/garden/internal/util"
-
 	"encoding/csv"
 	"fmt"
 	"log"
@@ -10,6 +8,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/ConfusedPolarBear/garden/internal/util"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
@@ -23,8 +23,12 @@ func InitializeDatabase() {
 
 	logrus.Trace("[db] initializing database connection")
 
+	if err := util.Mkdir("data"); err != nil {
+		logrus.Fatalf("[db] unable to create data directory: %s", err)
+	}
+
 	// TODO: support other database backends other than sqlite
-	db, err = gorm.Open(sqlite.Open("garden.db"), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Open("data/garden.db"), &gorm.Config{})
 	if err != nil {
 		logrus.Fatalf("[db] unable to open database: %s", db)
 	}

@@ -3,7 +3,7 @@ import VueRouter, { RouteConfig } from "vue-router";
 import Setup from "@/views/Setup.vue";
 import Systems from "@/views/Systems.vue";
 import Graph from "@/views/Graph.vue";
-import Configuration from "@/views/Configuration.vue";
+import SystemWizard from "@/views/SystemWizard.vue";
 import SystemInfo from "@/views/SystemInfo.vue";
 
 Vue.use(VueRouter);
@@ -32,7 +32,7 @@ const routes: Array<RouteConfig> = [
   {
     path: "/configure",
     name: "configure",
-    component: Configuration
+    component: SystemWizard
   }
 ];
 
