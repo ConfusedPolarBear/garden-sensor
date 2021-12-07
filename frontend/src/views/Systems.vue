@@ -1,7 +1,6 @@
 <template>
   <v-container>
     <h1>Module List</h1>
-    <!-- <div v-for="r of resultQuery" :key="r.id">{{r.title}}</div> -->
     <div class="module-list-container"> 
     <v-row no-gutters class="search-bar">
       <v-col>
@@ -102,7 +101,7 @@ export default Vue.extend({
           value: "Filesystem"
         }
       ],
-      searchQuery: null,
+      searchQuery: "",
       systems: Array<GardenSystem>(),
       showSystemTypes: false,
       fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F",
@@ -231,16 +230,15 @@ export default Vue.extend({
   computed: {
     // search for node modules and return the result
     resultQuery() {
-      if (this.searchQuery) {
-        return this.systems.filter(item => {
+      if (!this.searchQuery) {
+        return this.$data.systems;
+      }
+        return this.$data.systems.filter((item: GardenSystem) => {
           return this.searchQuery
             .toLowerCase()
             .split(" ")
             .every(v => item.Identifier.toLowerCase().includes(v));
         });
-      } else {
-        return this.systems;
-      }
     }
   }
 });
