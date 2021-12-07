@@ -233,12 +233,13 @@ export default Vue.extend({
       if (!this.searchQuery) {
         return this.$data.systems;
       }
-        return this.$data.systems.filter((item: GardenSystem) => {
-          return this.searchQuery
-            .toLowerCase()
-            .split(" ")
-            .every(v => item.Identifier.toLowerCase().includes(v));
-        });
+      
+      return this.$data.systems.filter((item: GardenSystem) => {
+        return this.searchQuery
+          .toLowerCase()
+          .split(" ")
+          .every(v => item.Identifier.toLowerCase().includes(v));
+      });
     }
   }
 });
