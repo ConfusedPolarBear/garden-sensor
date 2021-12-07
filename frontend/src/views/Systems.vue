@@ -63,7 +63,6 @@ import NodeModule from "@/components/NodeModule.vue";
 export default Vue.extend({
   name: "Systems",
   components: { CommandDialog, NodeModule },
-  // components: { CommandDialog },
   // state
   data() {
     return {
@@ -138,7 +137,7 @@ export default Vue.extend({
     age(lastSeen: string): string {
       let diff = Number(new Date()) - Number(new Date(lastSeen));
       diff = Number(diff) / 1000;
-      return `${diff.toFixed(0)}`;
+      return diff.toFixed(0);
     },
     isEmulator(system: GardenSystem): boolean {
       return system.Announcement.IsEmulator;
@@ -198,10 +197,7 @@ export default Vue.extend({
     },
     isConnected(lastSeen: string): boolean {
       let diff = Number(new Date()) - Number(new Date(lastSeen));
-      if (diff > 14999) { // arbitrary number in ms
-        return false;
-      }
-      return true;
+      return diff < 70 * 1000;
     }
   },
   created() {

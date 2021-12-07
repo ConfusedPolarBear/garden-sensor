@@ -1,8 +1,8 @@
 <template>
-  <router-link :to="'/system/' + identifier" tag="v-card">
-  <v-card v-ripple flat class="rounded-0 card">
+  <router-link :to="'/system/' + identifier" custom v-slot="{ navigate }">
+  <v-card @click="navigate" @keypress.enter="navigate" v-ripple flat class="rounded-0 card">
     <v-row class="parent-row">
-      <v-col md="auto" :cols="auto">
+      <v-col md="auto" cols="auto">
         <v-icon class="node-icon"> mdi-leaf </v-icon>
       </v-col>
       <v-col>
@@ -14,7 +14,7 @@
           </router-link>
         </p>
       </v-col>
-      <v-col class="rhs" :align-items="center">
+      <v-col class="rhs" align-items="center">
         <v-container v-if="isConnected">
             <h2 class="connected">
               <tooltip :text="meshInfo(announcement)">
