@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
 	"regexp"
 	"sort"
@@ -56,7 +57,9 @@ func Setup(isServer bool) {
 
 	clientId := "garden-backend"
 	if !isServer {
-		clientId = "123456"
+		// Generate a random client ID in the range 500,000 - 999,999
+		rand.Seed(time.Now().UnixMicro())
+		clientId = fmt.Sprintf("garden-client-%d", rand.Intn(500_000)+500_000)
 	}
 
 	logrus.Debugf("[mqtt] backend server mode: %t, using client id %s", isServer, clientId)
@@ -354,7 +357,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 func Subscribe(topic string, callback func(c mqtt.Client, m mqtt.Message)) {
 	logrus.Debugf("[mqtt] subscribing to topic %s", topic)
 
-	if token := mqttClient.Subscribe(topic, 0, callback); token.Wait() && token.Error() != nil {
+	if token := mqttClient.Subscribe(topic, 0, callback); token.WaitTimeout(2*time.Second) && token.Error() != nil {
 		panic(token.Error())
 	}
 }

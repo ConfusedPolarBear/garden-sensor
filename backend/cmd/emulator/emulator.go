@@ -15,26 +15,35 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var id string = "1234567890AB"
-var baseTopic string = "garden/module/" + id
+var id string
+var baseTopic string
 var publishDelay float32 = 10
 
 // If all current system discovery messages should be removed.
 var flagClearSystems bool
 
 func init() {
-	flag.BoolVar(&flagClearSystems, "c", false, "If all garden discovery messages should be cleared")
-
-	flag.Parse()
-}
-
-func main() {
+	// Setup logging
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
 
 	logrus.SetLevel(logrus.DebugLevel)
 
+	// Parse CLI flags
+	flag.BoolVar(&flagClearSystems, "c", false, "If all garden discovery messages should be cleared")
+	flag.StringVar(&id, "i", "1234567890AB", "Sets the 12 character identifier for this system. Only 0-9 and A-F are permitted.")
+
+	flag.Parse()
+
+	if !util.SystemIdentifierRegex.MatchString(id) {
+		panic(fmt.Sprintf("provided identifier must match %s", &util.SystemIdentifierRegex))
+	}
+
+	baseTopic = "garden/module/" + id
+}
+
+func main() {
 	config.Load()
 	mqtt.Setup(false)
 
