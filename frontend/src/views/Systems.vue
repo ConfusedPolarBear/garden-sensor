@@ -1,26 +1,26 @@
 <template>
   <v-container>
     <h1>Module List</h1>
-    <div class="module-list-container"> 
-    <v-row no-gutters class="search-bar">
-      <v-col>
-        <input v-model="searchQuery" placeholder="Search for a module">
-      </v-col>
-      <v-col :cols="1">
-        <v-icon class="magnify"> mdi-magnify </v-icon>
-      </v-col>
-    </v-row>
-    <div v-for="sys in resultQuery" :key="sys.Identifier">
-      <node-module
+    <div class="module-list-container">
+      <v-row no-gutters class="search-bar">
+        <v-col>
+          <input v-model="searchQuery" placeholder="Search for a module" />
+        </v-col>
+        <v-col :cols="1">
+          <v-icon class="magnify"> mdi-magnify </v-icon>
+        </v-col>
+      </v-row>
+      <div v-for="sys in resultQuery" :key="sys.Identifier">
+        <node-module
           moduleName="Node Module"
           :identifier="sys.Identifier"
           :isConnected="isConnected(sys.UpdatedAt)"
           :timestamp="age(sys.UpdatedAt)"
           :announcement="sys.Announcement"
         />
+      </div>
     </div>
-    </div>
-    <br/>
+    <br />
 
     <span>Send command to:</span>
     <br />
@@ -229,12 +229,12 @@ export default Vue.extend({
       if (!this.searchQuery) {
         return this.$data.systems;
       }
-      
+
       return this.$data.systems.filter((item: GardenSystem) => {
         return this.searchQuery
           .toLowerCase()
           .split(" ")
-          .every(v => item.Identifier.toLowerCase().includes(v));
+          .every((v) => item.Identifier.toLowerCase().includes(v));
       });
     }
   }
@@ -242,9 +242,9 @@ export default Vue.extend({
 </script>
 
 <style scoped lang="scss">
-  h1 {
-    font-size: 3em;
-  }
+h1 {
+  font-size: 3em;
+}
 
 .search-bar {
   .magnify {

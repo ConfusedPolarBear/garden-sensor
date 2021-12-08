@@ -1,21 +1,27 @@
 <template>
   <router-link :to="'/system/' + identifier" custom v-slot="{ navigate }">
-  <v-card @click="navigate" @keypress.enter="navigate" v-ripple flat class="rounded-0 card">
-    <v-row class="parent-row">
-      <v-col md="auto" cols="auto">
-        <v-icon class="node-icon"> mdi-leaf </v-icon>
-      </v-col>
-      <v-col>
-        <h1>{{ moduleName }}</h1>
-        <p class="secondary-text">
-          Id:
-          <router-link :to="'/graph/' + identifier">
-            <code>{{ identifier }}</code>
-          </router-link>
-        </p>
-      </v-col>
-      <v-col class="rhs" align-items="center">
-        <v-container v-if="isConnected">
+    <v-card
+      @click="navigate"
+      @keypress.enter="navigate"
+      v-ripple
+      flat
+      class="rounded-0 card"
+    >
+      <v-row class="parent-row">
+        <v-col md="auto" cols="auto">
+          <v-icon class="node-icon"> mdi-leaf </v-icon>
+        </v-col>
+        <v-col>
+          <h1>{{ moduleName }}</h1>
+          <p class="secondary-text">
+            Id:
+            <router-link :to="'/graph/' + identifier">
+              <code>{{ identifier }}</code>
+            </router-link>
+          </p>
+        </v-col>
+        <v-col class="rhs" align-items="center">
+          <v-container v-if="isConnected">
             <h2 class="connected">
               <tooltip :text="meshInfo(announcement)">
                 <span>
@@ -24,8 +30,8 @@
                 </span>
               </tooltip>
             </h2>
-        </v-container>
-        <v-container v-else>
+          </v-container>
+          <v-container v-else>
             <h2 class="disconnected">
               <tooltip :text="meshInfo(announcement)">
                 <span>
@@ -34,14 +40,14 @@
                 </span>
               </tooltip>
             </h2>
-        </v-container>
-        <p class="secondary-text">
-          Last pushed {{ timestamp }} seconds ago
-          <v-icon class="icon" small> mdi-clock </v-icon>
-        </p>
-      </v-col>
-    </v-row>
-  </v-card>
+          </v-container>
+          <p class="secondary-text">
+            Last pushed {{ timestamp }} seconds ago
+            <v-icon class="icon" small> mdi-clock </v-icon>
+          </p>
+        </v-col>
+      </v-row>
+    </v-card>
   </router-link>
 </template>
 
@@ -50,16 +56,21 @@ import Vue from "vue";
 import { GardenSystem, GardenSystemInfo } from "@/store/types";
 import Tooltip from "@/components/Tooltip.vue";
 
-
 export default Vue.extend({
   name: "NodeModule",
   components: { Tooltip },
-  props: ["moduleName", "identifier", "isConnected", "timestamp", "announcement"],
+  props: [
+    "moduleName",
+    "identifier",
+    "isConnected",
+    "timestamp",
+    "announcement"
+  ],
   methods: {
     meshInfo(announcement: GardenSystemInfo): any {
       const mesh = announcement.IsMesh;
       return mesh ? "Mesh" : `MQTT (CH ${announcement.Channel})`;
-    },
+    }
   }
 });
 </script>
