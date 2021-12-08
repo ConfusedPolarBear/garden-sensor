@@ -14,33 +14,22 @@
         <v-col>
           <h1>{{ moduleName }}</h1>
           <p class="secondary-text">
-            Id:
-            <router-link :to="'/graph/' + identifier">
-              <code>{{ identifier }}</code>
-            </router-link>
+            <code>{{ identifier }}</code>
           </p>
         </v-col>
         <v-col class="rhs" align-items="center">
-          <v-container v-if="isConnected">
-            <h2 class="connected">
+          <span>
+            <h2 :class="state">
               <tooltip :text="meshInfo(announcement)">
-                <span>
-                  Connected
-                  <v-icon class="icon"> mdi-wifi-check </v-icon>
+                <span class="moduleState">
+                  {{ state }}
+                  <v-icon class="icon">
+                    {{ isConnected ? "mdi-wifi-check" : "mdi-wifi-off" }}
+                  </v-icon>
                 </span>
               </tooltip>
             </h2>
-          </v-container>
-          <v-container v-else>
-            <h2 class="disconnected">
-              <tooltip :text="meshInfo(announcement)">
-                <span>
-                  Disconnected
-                  <v-icon class="icon"> mdi-wifi-off </v-icon>
-                </span>
-              </tooltip>
-            </h2>
-          </v-container>
+          </span>
           <p class="secondary-text">
             Last pushed {{ timestamp }} seconds ago
             <v-icon class="icon" small> mdi-clock </v-icon>
@@ -53,7 +42,7 @@
 
 <script lang="ts">
 import Vue from "vue";
-import { GardenSystem, GardenSystemInfo } from "@/store/types";
+import { GardenSystemInfo } from "@/store/types";
 import Tooltip from "@/components/Tooltip.vue";
 
 export default Vue.extend({
@@ -67,9 +56,14 @@ export default Vue.extend({
     "announcement"
   ],
   methods: {
-    meshInfo(announcement: GardenSystemInfo): any {
+    meshInfo(announcement: GardenSystemInfo): string {
       const mesh = announcement.IsMesh;
       return mesh ? "Mesh" : `MQTT (CH ${announcement.Channel})`;
+    }
+  },
+  computed: {
+    state(): string {
+      return this.isConnected ? "connected" : "disconnected";
     }
   }
 });
@@ -96,18 +90,25 @@ p a {
 .node-icon {
   font-size: 4.5em;
 }
+
 h2.connected {
   color: $green-0;
   .icon {
     color: $green-0;
   }
 }
+
 h2.disconnected {
   color: $red-0;
   .icon {
     color: $red-0;
   }
 }
+
+span.moduleState {
+  text-transform: capitalize;
+}
+
 p .icon {
   padding-left: 0.25rem;
   color: $white-4;
