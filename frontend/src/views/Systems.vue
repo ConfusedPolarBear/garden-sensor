@@ -1,7 +1,16 @@
 <template>
   <v-container>
-    <p>Systems:</p>
-    <div class="module-list-container" v-for="sys in $store.state.systems" :key="sys.Identifier">
+    <h1>Module List</h1>
+    <div class="module-list-container"> 
+    <v-row no-gutters class="search-bar">
+      <v-col>
+        <input v-model="searchQuery" placeholder="Search for a module">
+      </v-col>
+      <v-col :cols="1">
+        <v-icon class="magnify"> mdi-magnify </v-icon>
+      </v-col>
+    </v-row>
+    <div v-for="sys in resultQuery" :key="sys.Identifier">
       <node-module
           moduleName="Node Module"
           :identifier="sys.Identifier"
@@ -10,7 +19,7 @@
           :announcement="sys.Announcement"
         />
     </div>
-    
+    </div>
     <br/>
 
     <span>Send command to:</span>
@@ -91,6 +100,7 @@ export default Vue.extend({
           value: "Filesystem"
         }
       ],
+      searchQuery: "",
       systems: Array<GardenSystem>(),
       showSystemTypes: false,
       fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F",
@@ -212,11 +222,46 @@ export default Vue.extend({
     fahrenheit() {
       window.localStorage.setItem("units", this.fahrenheit ? "F" : "C");
     }
+  },
+  computed: {
+    // search for node modules and return the result
+    resultQuery() {
+      if (!this.searchQuery) {
+        return this.$data.systems;
+      }
+      
+      return this.$data.systems.filter((item: GardenSystem) => {
+        return this.searchQuery
+          .toLowerCase()
+          .split(" ")
+          .every(v => item.Identifier.toLowerCase().includes(v));
+      });
+    }
   }
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+  h1 {
+    font-size: 3em;
+  }
+
+.search-bar {
+  .magnify {
+    width: 100%;
+    align-content: end;
+    font-size: 3rem;
+    background-color: $green-0;
+  }
+  input {
+    height: 100%;
+    width: 100%;
+    color: white;
+    padding: 0 2rem;
+  }
+  background-color: $black-0;
+}
+
 .module-list-container {
   overflow: hidden;
   border-radius: 4px;
