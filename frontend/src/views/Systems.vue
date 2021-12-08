@@ -101,7 +101,6 @@ export default Vue.extend({
         }
       ],
       searchQuery: "",
-      systems: Array<GardenSystem>(),
       showSystemTypes: false,
       fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F",
 
@@ -113,19 +112,10 @@ export default Vue.extend({
   },
   // actions
   methods: {
-    load(): void {
-      // Load all initial systems.
-      api("/systems");
-
-      // Subscribe to the Vuex store for future updates.
-      this.$store.subscribe(this.onMutation);
-    },
     onMutation(mutation: MutationPayload, state: any) {
       if (mutation.type !== "register" && mutation.type !== "update") {
         return;
       }
-
-      this.systems = state.systems;
 
       // When a new system is registered, check if any emulators are present. If there are any, display system types.
       // Don't bother to check if this isn't a new system registering itself or if we are already showing type info.
@@ -134,7 +124,7 @@ export default Vue.extend({
       }
 
       this.showSystemTypes = false;
-      for (const sys of this.systems) {
+      for (const sys of state.systems) {
         if (this.isEmulator(sys)) {
           this.showSystemTypes = true;
           break;
@@ -211,7 +201,8 @@ export default Vue.extend({
     }
   },
   created() {
-    this.load();
+    // Subscribe to the Vuex store for future updates. Updates happen when the server sends a WS message.
+    this.$store.subscribe(this.onMutation);
 
     // Periodically force the page to update in order to keep the last seen timestamps fresh for all systems.
     setInterval(() => {
@@ -227,10 +218,10 @@ export default Vue.extend({
     // search for node modules and return the result
     resultQuery() {
       if (!this.searchQuery) {
-        return this.$data.systems;
+        return this.$store.state.systems;
       }
 
-      return this.$data.systems.filter((item: GardenSystem) => {
+      return this.$store.state.systems.filter((item: GardenSystem) => {
         return this.searchQuery
           .toLowerCase()
           .split(" ")
