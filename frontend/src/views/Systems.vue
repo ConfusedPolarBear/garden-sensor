@@ -45,12 +45,6 @@
       <v-icon>mdi-plus</v-icon>
     </v-btn>
 
-    <br />
-    <div style="max-width: 300px">
-      <h2>Temporary settings menu</h2>
-      <v-switch v-model="fahrenheit" label="Use Farenheit" />
-    </div>
-
     <command-dialog
       @command="sendCommandHandler"
       @close="command.show = false"
@@ -102,7 +96,6 @@ export default Vue.extend({
       ],
       searchQuery: "",
       showSystemTypes: false,
-      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F",
 
       command: {
         id: "",
@@ -171,15 +164,6 @@ export default Vue.extend({
     isReadingValid(reading: number): boolean {
       return reading != 32768;
     },
-    temp(reading: number): string {
-      const units = this.fahrenheit ? "F" : "C";
-
-      if (this.fahrenheit) {
-        reading = (9 / 5) * reading + 32;
-      }
-
-      return `${reading.toFixed(2)} °${units}`;
-    },
     sendCommand(id: string) {
       this.command.id = id;
       this.command.show = true;
@@ -208,11 +192,6 @@ export default Vue.extend({
     setInterval(() => {
       this.$forceUpdate();
     }, 5 * 1000);
-  },
-  watch: {
-    fahrenheit() {
-      window.localStorage.setItem("units", this.fahrenheit ? "F" : "C");
-    }
   },
   computed: {
     // search for node modules and return the result
