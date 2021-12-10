@@ -26,6 +26,30 @@ void stopAccessPoint() {
     WiFi.softAPdisconnect(false);
 }
 
+void connectToWifi() {
+    String wifiSsid = ReadFile(FILE_WIFI_SSID);
+    String wifiPass = ReadFile(FILE_WIFI_PASS);
+
+    if (wifiSsid == "") {
+        return;
+    }
+
+    // Attempt to connect to the provided Wi-Fi network
+    WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
+
+    Serial << "Connecting to Wi-Fi";
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        Serial << ".";
+        processCommand(Serial.readStringUntil('\n'), true);
+    }
+    Serial << endl;
+
+    Serial << "IP address: " << WiFi.localIP() << endl;
+
+    connectToBroker();
+}
+
 void startNetworkScan() {
     if (WiFi.scanComplete() == -1) {
         LOGD("wifi", "Network scan already in progress");

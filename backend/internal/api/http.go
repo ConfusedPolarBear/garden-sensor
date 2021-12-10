@@ -1,14 +1,19 @@
 package api
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/ConfusedPolarBear/garden/internal/db"
 	"github.com/ConfusedPolarBear/garden/internal/mqtt"
 	"github.com/ConfusedPolarBear/garden/internal/util"
 	"github.com/ConfusedPolarBear/garden/internal/websocket"
+	"golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -116,6 +121,63 @@ func SendCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the user passes a hex encoded key, use that to encrypt the command.
+	if rKey := r.Form.Get("key"); len(rKey) == 64 {
+		logrus.Debugf("[server] encrypting command")
+
+		// Mesh messages are limited to 212 bytes in size. The nonce (12) + tag (16) drop that limit down to 184 bytes.
+		if len(command) > 184 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// User is expected to pass a hex encoded key
+		key, err := hex.DecodeString(rKey)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// Create the cipher.
+		// TODO: should be cached.
+		chacha, err := chacha20poly1305.New(key)
+		if err != nil {
+			logrus.Warnf("[crypto] unable to initialize cipher: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Create the nonce and seal the box.
+		// Ensure that nulls and carriage returns aren't present because the C++ firmware can't handle them correctly
+		// and it will fail to authenticate the ciphertext.
+		// TODO: root cause this and *properly* fix it.
+		var nonce, raw []byte
+		forbidden := "\x00\x0d"
+
+		for {
+			nonce, raw = nil, nil
+
+			nonce = make([]byte, chacha20poly1305.NonceSize)
+			if _, err := rand.Read(nonce); err != nil {
+				panic(err)
+			}
+
+			raw = chacha.Seal(raw, nonce, []byte(command), nil)
+
+			if !bytes.ContainsAny(nonce, forbidden) && !bytes.ContainsAny(raw, forbidden) {
+				break
+			}
+		}
+
+		// Garden systems expect nonce + tag + ciphertext, not nonce + ciphertext + tag. Swap the bytes to account for this.
+		start := len(raw) - 16
+		tag, ciphertext := raw[start:], raw[:start]
+
+		command = fmt.Sprintf("e%s%s%s", nonce, tag, ciphertext)
+
+		// logrus.Debugf("nonce is %X, tag is %X, and ciphertext is %X", nonce, tag, ciphertext)
+	}
+
 	// Get the system
 	isMesh := false
 	if id != "FFFFFFFFFFFF" {
@@ -154,26 +216,33 @@ func SendCommand(w http.ResponseWriter, r *http.Request) {
 		// Construct the mesh payload
 		// {"Command":"Publish", "Payload": "{'D':'dst-123457890AB','Command':'Ping'}"}
 
-		// Unmarshal the command in order to add the destination key to it
-		var rawCommand map[string]interface{}
-		if err := json.Unmarshal([]byte(command), &rawCommand); err != nil {
-			logrus.Errorf("[server] unable to unmarshal command as JSON: %s", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
+		// If this is an unencrypted message, insert the destination info as a key.
+		if strings.HasPrefix(mqttPayload, "{") {
+			// Unmarshal the command in order to add the destination key to it
+			var rawCommand map[string]interface{}
+			if err := json.Unmarshal([]byte(command), &rawCommand); err != nil {
+				logrus.Errorf("[server] unable to unmarshal command as JSON: %s", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			rawCommand["D"] = fmt.Sprintf("dst-%s", id)
+
+			// Remarshal the command in coordinator format.
+			meshCommand := util.Marshal(meshPublishCommand{
+				Command: "Publish",
+				Payload: string(util.Marshal(rawCommand)),
+			})
+
+			mqttPayload = string(meshCommand)
+
+		} else {
+			// Since this is an encrypted payload, just prepend the id of the final system.
+			mqttPayload = fmt.Sprintf(`{"Command":"Publish","Payload":"h%x"}`, "dst-"+id+mqttPayload)
 		}
 
-		rawCommand["D"] = fmt.Sprintf("dst-%s", id)
-
-		// Remarshal the command in coordinator format.
-		meshCommand := util.Marshal(meshPublishCommand{
-			Command: "Publish",
-			Payload: string(util.Marshal(rawCommand)),
-		})
-
-		mqttPayload = string(meshCommand)
-
 	} else {
-		logrus.Debug("[server] system %s networking mode is wifi")
+		logrus.Debugf("[server] system %s networking mode is wifi", id)
 	}
 
 	logrus.Debugf("[server] commanding \"%s\"", mqttDest)

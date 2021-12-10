@@ -24,6 +24,7 @@
 #include <mesh.h>
 #include <mqtt.h>
 #include <networking.h>
+#include <ota.h>
 #include <sensors.h>
 
 // ========== Paths to configuration files ==========
@@ -44,7 +45,7 @@
 void parseSerial();
 
 // Process a sent command.
-void processCommand(String command);
+void processCommand(String command, bool secure = false);
 
 // ========== Utility functions ==========
 uint32_t secureRandom();

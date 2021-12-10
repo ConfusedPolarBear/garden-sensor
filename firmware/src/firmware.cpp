@@ -1,8 +1,5 @@
 #include <firmware.h>
 
-String wifiSsid, wifiPass;
-String mqttHost, mqttUser, mqttPass;
-
 bool isController;
 String meshController;
 int meshChannel;
@@ -43,16 +40,14 @@ void setup() {
                 continue;
             }
 
-            processCommand(Serial.readStringUntil('\n'));
+            processCommand(Serial.readStringUntil('\n'), true);
         }
     }
 
     // Configuration is valid, load and display it for validation
-    wifiSsid = ReadFile(FILE_WIFI_SSID);
-    wifiPass = ReadFile(FILE_WIFI_PASS);
-    mqttHost = ReadFile(FILE_MQTT_HOST);
-    mqttUser = ReadFile(FILE_MQTT_USER);
-    mqttPass = ReadFile(FILE_MQTT_PASS);
+    String wifiSsid = ReadFile(FILE_WIFI_SSID);
+    String mqttHost = ReadFile(FILE_MQTT_HOST);
+    String mqttUser = ReadFile(FILE_MQTT_USER);
 
     meshController = ReadFile(FILE_MESH_CONTROLLER);
 
@@ -100,20 +95,7 @@ void setup() {
     }
 
     if (isController) {
-        // Attempt to connect to the provided Wi-Fi network
-        WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
-
-        Serial << "Connecting to Wi-Fi";
-        while (WiFi.status() != WL_CONNECTED)
-        {
-            Serial << ".";
-            processCommand(Serial.readStringUntil('\n'));
-        }
-        Serial << endl;
-
-        Serial << "IP address: " << WiFi.localIP() << endl;
-
-        connectToBroker(mqttHost, mqttUser, mqttPass);
+        connectToWifi();
 
         // Since ESP-NOW is very unreliable if the channels don't match, force them to match.
         meshChannel = WiFi.channel();
@@ -149,10 +131,10 @@ bool sentTest = false;
 long lastPublish = 0;
 void loop() {
     // Process any Serial commands
-    processCommand(Serial.readStringUntil('\n'));
+    processCommand(Serial.readStringUntil('\n'), true);
 
     if (isController) {
-        connectToBroker(mqttHost, mqttUser, mqttPass);      // will only reconnect if needed
+        connectToBroker();      // will only reconnect if needed
         processMqtt();
     }
 
@@ -189,7 +171,7 @@ void loop() {
     }
 }
 
-void processCommand(String command) {
+void processCommand(String command, bool secure) {
     bool changed = false;
 
     if (command.length() == 0) {
@@ -197,6 +179,44 @@ void processCommand(String command) {
     }
 
     command.replace("\r", "");
+
+    // Encrypted commands start with "e" & need to be decrypted before processing. Format: e || NONCE || TAG || CIPHERTEXT
+    // where "||" denotes concatenation.
+    
+    // Check that the command is at least 31 bytes since the encryption has a fixed overhead of 30 bytes.
+    if (command.charAt(0) == 'e' && command.length() > 30) {
+        LOGD("cmnd", "command is encrypted");
+
+        size_t len = command.length();
+        if (len - 12 - 16 >= 250) {
+            LOGW("cmnd", "ciphertext too long");
+            return;
+        }
+
+        // Nonce is 12 bytes & auth tag is 16 bytes.
+        String nonce = command.substring(1, 13);
+        String tag = command.substring(13, 29);
+        command = command.substring(29, len);
+        len = command.length();
+
+        void* plaintext = calloc(len, sizeof(char));
+
+        if (!decrypt(command.c_str(), len, nonce.c_str(), tag.c_str(), (char*)plaintext)) {
+            free(plaintext);
+            return;
+        }
+
+        LOGD("crypto", "successfully decrypted command");
+
+        command = "";
+        for (int i = 0; i < len; i++) {
+            command += ((char*)plaintext)[i];
+        }
+
+        free(plaintext);
+
+        secure = true;
+    }
 
     // Try to deserialize the input as JSON
     LOGD("cmnd", "deserializing '" + command + "'");
@@ -234,6 +254,22 @@ void processCommand(String command) {
             if (payload.length() == 0) {
                 LOGW("app", "the payload property is required");
                 return;
+            }
+
+            // If the payload has the prefix "h", it is hex encoded. Decode it before sending it.
+            if (payload.charAt(0) == 'h') {
+                LOGD("app", "decoding hex mesh message before transmitting");
+                payload += "00";
+
+                size_t len = payload.length();
+                String newPayload = "";
+                for (size_t i = 1; i < len; i += 2) {
+                    String current = payload.substring(i, i+2);
+                    char chr = (char)(int)strtol(current.c_str(), NULL, 16);
+                    newPayload += chr;
+                }
+
+                payload = newPayload;
             }
 
             publishMesh(payload, "");

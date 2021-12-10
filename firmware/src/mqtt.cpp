@@ -12,7 +12,7 @@ void setupTopics() {
 	baseTopic = "garden/module/" + clientId;
 }
 
-void connectToBroker(String host, String user, String pass) {
+void connectToBroker() {
     if (mqtt.connected()) {
         return;
     }
@@ -22,6 +22,10 @@ void connectToBroker(String host, String user, String pass) {
     }
 
     setupTopics();
+
+    String host = ReadFile(FILE_MQTT_HOST);
+    String user = ReadFile(FILE_MQTT_USER);
+    String pass = ReadFile(FILE_MQTT_PASS);
 
     // Log the connection attempt and try to connect
     bool auth = user.length() > 0;
