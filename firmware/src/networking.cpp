@@ -88,10 +88,7 @@ void processNetworkScan() {
         net["RSSI"] = i.RSSI;
     }
 
-    String serialized;
-    serializeJson(doc, serialized);
-
-    publish(serialized, "networks");
+    publish(&doc, "networks");
 }
 
 #warning pass a string vector with discovered sensors
@@ -125,8 +122,5 @@ void sendDiscoveryMessage(bool useMqtt) {
     sensors.add("temperature");
     sensors.add("humidity");
 
-    String discovery;
-    serializeJson(info, discovery);
-
-    publish(discovery, "discovery");
+    publish(&info, "discovery");
 }

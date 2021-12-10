@@ -163,8 +163,6 @@ void loop() {
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
     if (millis() - lastPublish >= 60 * 1000) {
-        String strReading;
-
         StaticJsonDocument<100> mesh;
         meshStatistics stats = getStatistics();
 
@@ -173,10 +171,7 @@ void loop() {
         mesh["DL"] = stats.droppedLength;
         mesh["DA"] = stats.droppedAuth;
         mesh["AC"] = stats.accepted;
-        serializeJson(mesh, strReading);
-        publish(strReading, "mesh");
-        
-        strReading = "";
+        publish(&mesh, "mesh");
 
         lastPublish = millis();
 
@@ -190,10 +185,7 @@ void loop() {
         json["Error"] = reading.error;
         json["Temperature"] = reading.temperature;
         json["Humidity"] = reading.humidity;
-
-        serializeJson(json, strReading);
-
-        publish(strReading);
+        publish(&json, "data");
     }
 }
 

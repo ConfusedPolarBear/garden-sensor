@@ -92,6 +92,12 @@ bool publish(String data, String teleTopic) {
     return publishMesh(data, topic);
 }
 
+bool publish(JsonDocument* doc, String topic) {
+    String json;
+    serializeJson(*doc, json);
+    return publish(json, topic);
+}
+
 String getClientId() {
     return clientId;
 }
