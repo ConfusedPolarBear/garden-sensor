@@ -62,23 +62,26 @@ bool decrypt(const char* cipher, const size_t cipherLength, const char* nonce, c
 
     ChaChaPoly* chacha = new ChaChaPoly();
 
-    LOGD("crypto", "setting key to " + arrayToString(_symKey, 32));
     if (!chacha->setKey(_symKey, 32)) {
         LOGF("crypto", "symmetric key setup failed");
     }
 
-    LOGD("crypto", "setting \"iv\" to " + arrayToString((const uint8_t*)nonce, 12));
+    // LOGD("crypto", "setting \"iv\" to " + arrayToString((const uint8_t*)nonce, 12));
     if (!chacha->setIV((const uint8_t*)nonce, 12)) {
         LOGF("crypto", "symmetric nonce setup failed");
     }
 
-    LOGD("crypto", "decrypting ciphertext " + arrayToString((const uint8_t*)cipher, cipherLength));
+    // LOGD("crypto", "decrypting ciphertext " + arrayToString((const uint8_t*)cipher, cipherLength));
     chacha->decrypt((uint8_t*)output, (const uint8_t*)cipher, cipherLength);
 
-    LOGD("crypto", "tag is " + arrayToString((const uint8_t*)tag, 16));
+    // LOGD("crypto", "tag is " + arrayToString((const uint8_t*)tag, 16));
     bool okay = chacha->checkTag(tag, 16);
     if (!okay) {
         LOGW("crypto", "message authentication failed");
+
+        // Zeroize the output if the tag is wrong because ciphertext that fails authentication should never ever be released
+        // to callers ever but the library does so anyway.
+        memzero(output, cipherLength);
     }
 
     chacha->clear();
