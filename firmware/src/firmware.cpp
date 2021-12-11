@@ -145,7 +145,7 @@ void loop() {
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
     if (millis() - lastPublish >= 60 * 1000) {
-        StaticJsonDocument<100> mesh;
+        DynamicJsonDocument mesh(100);;
         meshStatistics stats = getStatistics();
 
         mesh["SE"] = stats.sent;
@@ -153,7 +153,7 @@ void loop() {
         mesh["DL"] = stats.droppedLength;
         mesh["DA"] = stats.droppedAuth;
         mesh["AC"] = stats.accepted;
-        publish(&mesh, "mesh");
+        publish(mesh, "mesh");
 
         lastPublish = millis();
 
@@ -163,11 +163,11 @@ void loop() {
 
         sensorData reading = getSensorData();
 
-        StaticJsonDocument<100> json;
+        DynamicJsonDocument json(100);
         json["Error"] = reading.error;
         json["Temperature"] = reading.temperature;
         json["Humidity"] = reading.humidity;
-        publish(&json, "data");
+        publish(json, "data");
     }
 }
 
@@ -220,7 +220,7 @@ void processCommand(String command, bool secure) {
 
     // Try to deserialize the input as JSON
     LOGD("cmnd", "deserializing '" + command + "'");
-    DynamicJsonDocument data(3 * 1024);
+    DynamicJsonDocument data(1024);
     DeserializationError error = deserializeJson(data, command);
 
     // Log success or failure

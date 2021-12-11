@@ -96,9 +96,9 @@ bool publish(String data, String teleTopic) {
     return publishMesh(data, topic);
 }
 
-bool publish(JsonDocument* doc, String topic) {
+bool publish(const JsonDocument& doc, const String topic) {
     String json;
-    serializeJson(*doc, json);
+    serializeJson(doc, json);
     return publish(json, topic);
 }
 

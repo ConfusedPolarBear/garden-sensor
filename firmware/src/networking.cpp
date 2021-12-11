@@ -112,7 +112,7 @@ void processNetworkScan() {
         net["RSSI"] = i.RSSI;
     }
 
-    publish(&doc, "networks");
+    publish(doc, "networks");
 }
 
 #warning pass a string vector with discovered sensors
@@ -146,5 +146,5 @@ void sendDiscoveryMessage(bool useMqtt) {
     sensors.add("temperature");
     sensors.add("humidity");
 
-    publish(&info, "discovery");
+    publish(info, "discovery");
 }

@@ -16,7 +16,7 @@ void processMqtt();
 bool publish(String data, String teleTopic = "data");
 
 // Publish a JSON document over ESP-NOW or MQTT.
-bool publish(JsonDocument* doc, String teleTopic);
+bool publish(const JsonDocument& doc, const String teleTopic);
 
 // Returns the MQTT client identifier
 String getClientId();
