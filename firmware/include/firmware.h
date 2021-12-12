@@ -54,3 +54,12 @@ void queueCommand(String command);
 uint32_t secureRandom();
 String secureRandomNonce();
 void memzero(void* ptr, size_t size);
+void printMemoryStatistics(String msg);
+
+#define BUILTIN_LED 2
+
+// Flashes the onboard LED.
+void flashLed();
+
+// Delays for the provided amount of time without blocking background processes on the ESP.
+void safeDelay(const size_t time);

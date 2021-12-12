@@ -26,27 +26,32 @@ String getUpdateMessage() {
 void onUpdateProgress(size_t lhs, size_t rhs) {
     float percent = (lhs * 100) / rhs;
     LOGD("ota", "update progress: " + String(percent) + "%");
+
+    if ((int)percent % 10 == 0) {
+        flashLed();
+    }
 }
 
-void startUpdate(String wifi, String psk, String url, size_t length, String hash) {
+void startUpdate(String wifi, String psk, String url, size_t length, String checksum) {
     LOGD("ota", "starting OTA update from " + url + " through " + wifi + ". current connection is " + WiFi.SSID());
-    LOGD("ota", "firmware is " + String(length) + " and has hash " + hash);
+    LOGD("ota", "firmware is " + String(length) + " and has checksum " + checksum);
 
-    bool isController = FileExists(FILE_MESH_CONTROLLER);
     HTTPClient http;
     WiFiClient client;
     int httpCode;
-    size_t written;
-
+    size_t totalWritten;
     bool connect = false;
+
+    // Figure out if we need to change Wi-Fi networks.
     if (wifi == "") {
-        // If no network is specified, only proceed if we're already connected.
+        // If no network is specified, only proceed if we're already connected to any network.
         if (WiFi.SSID() == "") {
+            // Not connected, no way to download the firmware.
             LOGW("ota", "no current connection & none provided");
             updateResult = "not connected to wifi network and none was specified";
             return;
         } else {
-            // Assume that this network will work.
+            // We're connected to something, assume that it will work.
             LOGD("ota", "no connection specified but connected, assuming this is okay");
             connect = false;
         }
@@ -64,47 +69,15 @@ void startUpdate(String wifi, String psk, String url, size_t length, String hash
         }
     }
 
-    if (connect) {
-        if (isController) {
-            // TODO: pause MQTT watchdog until OTA has a result & we're reconnected to the hardcoded network
-            WiFi.disconnect();
-        }
-
-        // Connect to the new network.
-        LOGD("ota", "connecting to " + wifi);
-        WiFi.disconnect();
-        LOGD("ota", "beginning new connection");
-        WiFi.begin(wifi.c_str(), psk.c_str());
-        LOGD("ota", "connecting");
-
-        // Only try to connect to the network for 15s to prevent
-        unsigned long start = millis();
-        while (WiFi.status() != WL_CONNECTED && millis() - start <= 15 * 1000) {
-            Serial << ".";
-            yield();
-        }
-        Serial << endl;
-
-        if (WiFi.status() != WL_CONNECTED) {
-            // If the connection attempt failed, reconnect to the main network (connection is a no-op if not controller).
-            // TODO: does this fuck with the mesh?
-            updateResult = "Failed to connect to Wi-Fi";
-            goto fail;
-        }
-    } else {
-        LOGD("ota", "not changing wifi connections");
-    }
-
-    // Okay, we're connected to a network with access to the update server.
-    // Perform initial internal setup and get ready to download the file.
-    LOGD("ota", "setting update hash to " + hash + " and expected length to " + String(length));
+    // Initial setup is here so we can fail fast if something's wrong.
+    LOGD("ota", "setting update checksum to " + checksum + " and expected length to " + String(length));
 
     if (!Update.begin(length)) {
         updateResult = "not enough space to store update";
         goto fail;
     }
 
-    if (!Update.setMD5(hash.c_str())) {
+    if (!Update.setMD5(checksum.c_str())) {
         updateResult = "failed to set checksum";
         goto fail;
     }
@@ -116,10 +89,34 @@ void startUpdate(String wifi, String psk, String url, size_t length, String hash
         url = "http://" + url;
     }
 
+    // Connect to the new Wi-Fi network (if needed).
+    if (connect) {
+        WiFi.begin(wifi.c_str(), psk.c_str());
+        LOGD("ota", "connecting to " + wifi);
+
+        // Only try to connect to the network for a short time to prevent the system from hanging forever here with bad creds.
+        unsigned long start = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - start <= 15 * 1000) {
+            Serial << ".";
+            delay(500);
+        }
+        Serial << endl;
+
+        if (WiFi.status() != WL_CONNECTED) {
+            // If the connection attempt failed, reconnect to the main network (connection is a no-op if not controller).
+            // TODO: does this fuck with the mesh?
+            updateResult = "Failed to connect to Wi-Fi";
+            goto fail;
+        }
+    } else {
+        LOGD("ota", "not changing wifi connection");
+    }
+
+    // Okay, we're connected to a network with access to the update server, download & install the firmware.
     LOGD("ota", "starting download from " + url);
 
-    // Ensure that we don't hang forever trying to get the new firmware.
     #ifdef ESP32
+    // Ensure that we don't hang forever trying to get the new firmware.
     http.setConnectTimeout(10000);
     #endif
 
@@ -127,7 +124,6 @@ void startUpdate(String wifi, String psk, String url, size_t length, String hash
     http.setTimeout(10000);
 
     if (!http.begin(client, url)) {
-        LOGD("ota", "unable to begin with specified url");
         updateResult = "failed to begin HTTP connection";
         goto fail;
     }
@@ -141,10 +137,18 @@ void startUpdate(String wifi, String psk, String url, size_t length, String hash
         goto fail;
     }
 
-    written = Update.writeStream(http.getStream());
-    if (written != length) {
+    // Verify that the user sent the correct firmware length
+    if ((int)length != http.getSize()) {
+        LOGW("ota", "length and content-length header mismatch, expected " + String(length) + ", got " + String(http.getSize()));
+        updateResult = "length mismatch";
+        goto fail;
+    }
+
+    // Here we go...
+    totalWritten = Update.writeStream(http.getStream());
+    if (totalWritten != length) {
+        LOGW("ota", "wrote " + String(totalWritten) + " bytes but firmware is known to be " + String(length) + " bytes");
         updateResult = "bytes written does not equal firmware length";
-        LOGW("ota", "wrote " + String(written) + " but firmware is known to be " + String(length));
         goto fail;
     }
 
@@ -158,6 +162,8 @@ void startUpdate(String wifi, String psk, String url, size_t length, String hash
     ESP.restart();
 
     fail:
-    connectToWifi();
-    return;
+    LOGW("ota", "error: " + updateResult + " (" + String(Update.getError()) + ")");
+
+    #warning USE CORRECT MESH CHANNEL HERE
+    startAccessPoint(7);
 }

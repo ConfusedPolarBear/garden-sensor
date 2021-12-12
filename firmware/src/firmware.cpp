@@ -5,11 +5,19 @@ String meshController;
 int meshChannel;
 
 std::queue<String> commandQueue;
+
+uint32_t lastStack = 3 * 1024;
+
 void setup() {
     Wire.begin(4, 5);  // data, clock
 
     Serial.begin(115200);
     Serial.setTimeout(500);     // timeout for readStringUntil()
+
+    #ifdef USE_BUILTIN_LED
+    pinMode(BUILTIN_LED, OUTPUT);     // wemos d1 minis have the builtin LED on D4 (GPIO2) *active low*.
+    digitalWrite(BUILTIN_LED, HIGH);
+    #endif
 
     Serial << endl << endl;
 
@@ -128,7 +136,29 @@ void setup() {
     sendDiscoveryMessage(isController);
 }
 
-bool sentTest = false;
+void printMemoryStatistics(String location) {
+    #ifdef ESP8266
+    uint32_t current = ESP.getFreeContStack();
+
+    LOGD("app", "memory stats at " + location);
+    LOGD("app", "free heap " + String(ESP.getFreeHeap()));
+
+    uint32_t decrease = lastStack - current;
+    String msg = "stack free " + String(current);
+    if (decrease > 0) {
+        msg.concat(" (decreased by " + String(decrease) + ")");
+    }
+
+    if (current <= 512) {
+        LOGW("app", msg);
+    } else {
+        LOGD("app", msg);
+    }
+
+    lastStack = current;
+    #endif
+}
+
 long lastPublish = 0;
 void loop() {
     // Process outstanding commands
@@ -194,6 +224,8 @@ void processCommand(String command, bool secure) {
         return;
     }
 
+    // printMemoryStatistics("top of processCommand");
+
     command.replace("\r", "");
 
     // Encrypted commands start with "e" & need to be decrypted before processing. Format: e || NONCE || TAG || CIPHERTEXT
@@ -225,7 +257,7 @@ void processCommand(String command, bool secure) {
         LOGD("crypto", "successfully decrypted command");
 
         command = "";
-        for (int i = 0; i < len; i++) {
+        for (size_t i = 0; i < len; i++) {
             command += ((char*)plaintext)[i];
         }
 
@@ -327,6 +359,60 @@ void processCommand(String command, bool secure) {
             #endif
         }
 
+        else if (command == "update") {
+            DynamicJsonDocument updateResult(100);
+            updateResult["Success"] = false;
+
+            if (!secure) {
+                updateResult["Message"] = "Update command sent insecurely";
+                publish(updateResult, "ota");
+                return;
+            }
+
+            // SSID & PSK are optional but break startUpdate() if they're null, so set to empty strings if not provided.
+            String ssid = data["S"] | "";
+            String psk = data["P"] | "";
+
+            if (!data.containsKey("U") || !data.containsKey("L") || !data.containsKey("C")) {
+                updateResult["Message"] = "Url, Length, and Hash are required";
+                publish(updateResult, "ota");
+                return;
+            }
+
+            String url = data["U"];
+            String rawLength = data["L"];
+            String checksum = data["C"];
+
+            const size_t length = rawLength.toInt();
+            if (length <= 32 * 1024) {
+                updateResult["Message"] = "Invalid new size for firmware binary";
+                publish(updateResult, "ota");
+                return;
+            }
+
+            // Tell the server we're going to start attempting an update. Use safeDelay() to ensure the message is sent
+            // before the Wi-Fi connection is (probably) changed.
+            updateResult["Success"] = true;
+            updateResult["Message"] = "Starting update";
+            publish(updateResult, "ota");
+            safeDelay(500);
+
+            startUpdate(ssid, psk, url, length, checksum);
+
+            LOGD("ota", "returned from startUpdate");
+            // TODO: also update success based on message
+            updateResult["Message"] = getUpdateMessage();
+
+            if (isController) {
+                connectToWifi();
+            }
+
+            safeDelay(500);
+
+            publish(updateResult, "ota");
+            return;
+        }
+
         else {
             LOGW("cmnd", "unknown command");
         }
@@ -423,4 +509,23 @@ void processCommand(String command, bool secure) {
     } else {
         LOGD("cmnd", "not configured");
     }
+
+    // printMemoryStatistics("returning from processCommand");
+}
+
+void safeDelay(const size_t time) {
+    const size_t start = millis();
+    while(millis() - start <= time) {
+        yield();
+    }
+}
+
+void flashLed() {
+    #ifndef USE_BUILTIN_LED
+    return;
+    #endif
+
+    digitalWrite(BUILTIN_LED, LOW);
+    delay(50);
+    digitalWrite(BUILTIN_LED, HIGH);
 }
