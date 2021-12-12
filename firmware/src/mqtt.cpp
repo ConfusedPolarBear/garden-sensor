@@ -6,9 +6,7 @@ String clientId, baseTopic;
 bool everConnected = false;
 
 void setupTopics() {
-    clientId = WiFi.softAPmacAddress();
-    clientId.replace(":", "");
-
+    clientId = getIdentifier();
 	baseTopic = "garden/module/" + clientId;
 }
 

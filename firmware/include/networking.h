@@ -6,3 +6,4 @@ void stopAccessPoint();
 void startNetworkScan();
 void processNetworkScan();
 void sendDiscoveryMessage(bool useMqtt);
+String getIdentifier(bool includeColons = false);

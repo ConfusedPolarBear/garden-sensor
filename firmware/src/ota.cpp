@@ -128,6 +128,9 @@ void startUpdate(String wifi, String psk, String url, size_t length, String chec
         goto fail;
     }
 
+    // The ID of the system is included so the server can monitor when a node starts downloading firmware.
+    http.addHeader("System-ID", getIdentifier());
+
     // Make the request and make sure that the response is 200 OK.
     httpCode = http.GET();
     LOGD("ota", "download response code is " + String(httpCode));

@@ -11,8 +11,7 @@ void startAccessPoint(int channel) {
     // Since the PSK is randomized every time it is started, this would wear out the flash very quickly.
     WiFi.persistent(false);
 
-    String apSsid = "m-" + WiFi.softAPmacAddress();
-    apSsid.replace(":", "");
+    String apSsid = "m-" + getIdentifier();
     apSsid.toLowerCase();
 
     String apPass = secureRandomNonce();
@@ -147,4 +146,14 @@ void sendDiscoveryMessage(bool useMqtt) {
     sensors.add("humidity");
 
     publish(info, "discovery");
+}
+
+String getIdentifier(bool includeColons) {
+    String clientId = WiFi.softAPmacAddress();
+
+    if (!includeColons) {
+        clientId.replace(":", "");
+    }
+
+    return clientId;
 }

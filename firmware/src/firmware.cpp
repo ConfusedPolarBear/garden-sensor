@@ -25,7 +25,7 @@ void setup() {
 
     WiFi.persistent(false);
     WiFi.mode(WIFI_AP_STA);
-    Serial << "Mesh MAC address: " << WiFi.softAPmacAddress() << endl;
+    Serial << "Mesh MAC address: " << getIdentifier(true) << endl;
 
     // Check if the system has been configured
     bool configured = false;
