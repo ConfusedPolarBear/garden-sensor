@@ -372,8 +372,8 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
                 LOGD("mesh", "handling unencrypted payload");
             }
 
-            LOGD("mesh", "handling command '" + payload + "'");
-            processCommand(payload);
+            LOGD("mesh", "queuing command '" + payload + "'");
+            queueCommand(payload);
         }
 
     } else {

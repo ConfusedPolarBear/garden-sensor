@@ -4,6 +4,7 @@ bool isController;
 String meshController;
 int meshChannel;
 
+std::queue<String> commandQueue;
 void setup() {
     Wire.begin(4, 5);  // data, clock
 
@@ -130,8 +131,13 @@ void setup() {
 bool sentTest = false;
 long lastPublish = 0;
 void loop() {
-    // Process any Serial commands
+    // Process outstanding commands
     processCommand(Serial.readStringUntil('\n'), true);
+
+    if (!commandQueue.empty()) {
+        processCommand(commandQueue.front());
+        commandQueue.pop();
+    }
 
     if (isController) {
         connectToBroker();      // will only reconnect if needed
@@ -169,6 +175,16 @@ void loop() {
         json["Humidity"] = reading.humidity;
         publish(json, "data");
     }
+}
+
+void queueCommand(String command) {
+    if (command.startsWith("e")) {
+        LOGD("app", "queued encrypted command");
+    } else {
+        LOGD("app", "queued command " + command);
+    }
+
+    commandQueue.push(command);
 }
 
 void processCommand(String command, bool secure) {

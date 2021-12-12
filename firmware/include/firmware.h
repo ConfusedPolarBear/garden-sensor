@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <queue>
 #include <vector>
 
 #include <Arduino.h>
@@ -46,6 +47,8 @@ void parseSerial();
 
 // Process a sent command.
 void processCommand(String command, bool secure = false);
+
+void queueCommand(String command);
 
 // ========== Utility functions ==========
 uint32_t secureRandom();
