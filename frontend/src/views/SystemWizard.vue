@@ -74,16 +74,19 @@
 
                     <ol>
                       <li>
-                        <p>
+                        <span>
                           You will will need to download
                           <a
-                            href="https://raw.githubusercontent.com/ConfusedPolarBear/garden-sensor/config/esp32/esp32.zip"
+                            href="https://raw.githubusercontent.com/ConfusedPolarBear/garden-sensor/main/esp32/esp32.zip"
                           >
                             this ZIP file
                           </a>
                           to obtain the bootloader, boot_app0, and partition
                           binary files.
-                        </p>
+                        </span>
+                      </li>
+                      <li>
+                        <span>SHA256: <code>1ce366054001f1c71dc9bad23be38398c050b89670b91df20218c5aded8ae96f</code></span>
                       </li>
                     </ol>
                   </li>
