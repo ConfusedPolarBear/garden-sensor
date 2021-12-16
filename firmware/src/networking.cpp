@@ -122,6 +122,9 @@ void sendDiscoveryMessage(bool useMqtt) {
     #ifdef ESP8266
     info["RR"] = ESP.getResetReason();
     info["CV"] = ESP.getCoreVersion();
+    info["TY"] = "ESP8266";
+    #else
+    info["TY"] = "ESP32";
     #endif
 
     info["SV"] = ESP.getSdkVersion();

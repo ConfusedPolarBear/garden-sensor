@@ -133,6 +133,7 @@ func handleMqttMessage(client, topic string, payload []byte) {
 		RestartReason       string `json:"RR"`
 		CoreVersion         string `json:"CV"`
 		SdkVersion          string `json:"SV"`
+		Chipset             string `json:"TY"`
 		FilesystemUsedSize  int    `json:"FU"`
 		FilesystemTotalSize int    `json:"FT"`
 		Sensors             []util.Sensor
