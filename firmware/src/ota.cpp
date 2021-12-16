@@ -53,7 +53,6 @@ void startUpdate(String wifi, String psk, String url, size_t length, String chec
         } else {
             // We're connected to something, assume that it will work.
             LOGD("ota", "no connection specified but connected, assuming this is okay");
-            connect = false;
         }
 
     } else {
@@ -65,7 +64,6 @@ void startUpdate(String wifi, String psk, String url, size_t length, String chec
         } else {
             // Already connected, don't do anything.
             LOGD("ota", "connection specified and already connected to it");
-            connect = false;
         }
     }
 

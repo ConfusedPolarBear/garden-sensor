@@ -20,6 +20,15 @@ func ManifestHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func DownloadFirmware(w http.ResponseWriter, r *http.Request) {
+	// Test if this is a short URL handler.
+	name := mux.CurrentRoute(r).GetName()
+	if name == "esp8266" || name == "esp32" {
+		sendFirmware(w, name, "firmware.bin")
+		return
+	}
+
+	// Since this is not a short URL handler, extract the parameters from the route & send that instead.
+
 	// Extract and validate the board name
 	board := mux.Vars(r)["board"]
 	if board != "esp32" && board != "esp8266" {
@@ -35,6 +44,10 @@ func DownloadFirmware(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sendFirmware(w, board, file)
+}
+
+func sendFirmware(w http.ResponseWriter, board, file string) {
 	// Open the firmware binary
 	p := path.Join("data/firmware", board, file)
 

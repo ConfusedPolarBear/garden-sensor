@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -24,6 +25,19 @@ func Mkdir(path string) error {
 	}
 
 	return nil
+}
+
+// Calculates the MD5 checksum of the input data or panic. Only present because the ESP8266 updater exclusively supports MD5.
+//
+// DO NOT USE FOR ANYTHING ELSE!
+func MD5(data []byte) string {
+	hasher := md5.New()
+
+	if _, err := hasher.Write(data); err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 // Calculates the SHA256 hash of the input data or panic.

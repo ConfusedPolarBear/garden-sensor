@@ -41,6 +41,8 @@
 #define FILE_MESH_CHANNEL    "/meshChannel"
 #define FILE_MESH_KEY        "/meshKey"
 
+#define FILE_SECURE_MODE     "/secure"
+
 // ========== Command handling ==========
 // Checks if the Serial connection has a command. If it does, handle it.
 void parseSerial();

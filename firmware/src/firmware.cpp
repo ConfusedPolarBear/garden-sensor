@@ -399,8 +399,6 @@ void processCommand(String command, bool secure) {
 
             startUpdate(ssid, psk, url, length, checksum);
 
-            LOGD("ota", "returned from startUpdate");
-            // TODO: also update success based on message
             updateResult["Message"] = getUpdateMessage();
 
             if (isController) {
@@ -410,7 +408,10 @@ void processCommand(String command, bool secure) {
             safeDelay(500);
 
             publish(updateResult, "ota");
-            return;
+
+            safeDelay(500);
+
+            LOGF("ota", "restarting to recover from failed update");
         }
 
         else {
