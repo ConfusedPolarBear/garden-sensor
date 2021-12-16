@@ -17,7 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var defaultBlobUrl string = "https://raw.githubusercontent.com/ConfusedPolarBear/garden-sensor/config/esp32/esp32.zip"
+var defaultBlobUrl string = "https://raw.githubusercontent.com/ConfusedPolarBear/garden-sensor/main/esp32/esp32.zip"
 var defaultBlobChecksum string = "1ce366054001f1c71dc9bad23be38398c050b89670b91df20218c5aded8ae96f"
 
 // Path to the firmware manifest on the host.
