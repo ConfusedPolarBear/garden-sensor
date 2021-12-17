@@ -2,11 +2,13 @@ package util
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 )
 
 // Marshal v or panic.
@@ -49,4 +51,25 @@ func SHA256(data []byte) string {
 	}
 
 	return hex.EncodeToString(sha256.Sum(nil))
+}
+
+// Returns a securely generated random buffer of length n.
+func SecureRandom(n int) []byte {
+	buf := make([]byte, n)
+
+	if _, err := rand.Read(buf); err != nil {
+		panic(err)
+	}
+
+	return buf
+}
+
+func IdentifierToAddress(raw string) string {
+	addr := ""
+	for i := 0; i < 12; i += 2 {
+		addr += raw[i:i+2] + ":"
+	}
+	addr = strings.TrimSuffix(addr, ":")
+
+	return addr
 }
