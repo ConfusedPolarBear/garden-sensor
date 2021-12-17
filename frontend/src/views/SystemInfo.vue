@@ -1,6 +1,6 @@
 <template>
   <v-container>
-    <h2>System: {{ id }}</h2>
+    <h2>{{ id }} ({{ chipset }})</h2>
     <v-container v-if="!initializing">
       <v-row justify="center" justify-sm="start">
         <v-col>
@@ -20,6 +20,43 @@
               :data="system.LastReading.Humidity"
             />
           </router-link>
+        </v-col>
+      </v-row>
+      <v-row>
+        <v-col lg cols="6">
+          <h2>Update firmware</h2>
+          <p>
+            Systems can only be updated over Wi-Fi. Specify the network name and
+            password of a network that this system should connect to in order to
+            download the new firmware. You must also specify the IP address and
+            port of the backend server on that network.
+          </p>
+
+          <p>
+            Systems that are downloading new firmware will disconnect from MQTT
+            and the mesh for up to two minutes. In the event of an error, the
+            system will restart itself without installing the new firmware.
+          </p>
+
+          <v-form>
+            <v-text-field v-model="update.ssid" label="SSID" />
+            <v-text-field
+              v-model="update.psk"
+              label="Password"
+              type="password"
+            />
+            <v-text-field v-model="update.host" label="Host" />
+            <br />
+
+            <v-btn
+              @click="startUpdate"
+              :disabled="this.update.loading"
+              :loading="this.update.loading"
+              color="primary darken-1"
+            >
+              Start update
+            </v-btn>
+          </v-form>
         </v-col>
       </v-row>
     </v-container>
@@ -48,12 +85,21 @@ export default Vue.extend({
   data() {
     return {
       initializing: true,
-      system: {} as GardenSystem
+      system: {} as GardenSystem,
+      update: {
+        ssid: window.localStorage.getItem("updateSsid") || "",
+        psk: window.localStorage.getItem("updatePass") || "",
+        host: window.localStorage.getItem("updateHost") || window.location.host,
+        loading: false
+      }
     };
   },
   computed: {
     id() {
       return this.$route.params["id"];
+    },
+    chipset() {
+      return this.$data.system?.Announcement?.Chipset;
     }
   },
   methods: {
@@ -63,10 +109,28 @@ export default Vue.extend({
         mutation.payload.Identifier === this.id
       ) {
         this.system = mutation.payload;
+        this.update.loading = false;
       }
+    },
+    startUpdate() {
+      window.localStorage.setItem("updateSsid", this.update.ssid);
+      window.localStorage.setItem("updatePass", this.update.psk);
+      window.localStorage.setItem("updateHost", this.update.host);
+
+      this.update.loading = true;
+
+      api(`/system/update/${this.id}`, {
+        method: "POST",
+        body: new URLSearchParams({
+          host: this.update.host,
+          ssid: this.update.ssid,
+          psk: this.update.psk
+        })
+      });
     }
   },
   async created() {
+    // TODO: retrieve these from vuex instead of this separate API call
     const res = await api(`/system/${this.$route.params.id}`);
     this.system = await res.json();
     this.initializing = false;

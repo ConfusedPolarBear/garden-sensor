@@ -34,6 +34,8 @@ export type GardenSystemInfo = {
 
   RestartReason: string;
 
+  // Chipset on this system. Either "ESP8266" or "ESP32".
+  Chipset: string;
   CoreVersion: string;
   SdkVersion: string;
 

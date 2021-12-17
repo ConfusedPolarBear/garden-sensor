@@ -28,7 +28,7 @@ func StartServer() {
 	r.HandleFunc("/system/{id}", GetSystem).Methods("GET")
 	r.HandleFunc("/system/delete/{id}", DeleteSystem).Methods("POST")
 	r.HandleFunc("/system/command/{id}", SendCommandHandler).Methods("POST", "OPTIONS")
-	r.HandleFunc("/system/update/{id}", StartOTA).Methods("POST")
+	r.HandleFunc("/system/update/{id}", StartOTA).Methods("POST", "OPTIONS")
 
 	r.HandleFunc("/firmware/manifest.json", ManifestHandler).Methods("GET")
 	r.HandleFunc("/firmware/{board}/{file}", DownloadFirmware).Methods("GET")
