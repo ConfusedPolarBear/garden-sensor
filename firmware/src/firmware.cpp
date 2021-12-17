@@ -266,6 +266,11 @@ void processCommand(String command, bool secure) {
         secure = true;
     }
 
+    // Ignore MAC addresses that are prefixed to the JSON.
+    if (command.indexOf("dst-") == 0) {
+        command = command.substring(16);
+    }
+
     // Try to deserialize the input as JSON
     LOGD("cmnd", "deserializing '" + command + "'");
     DynamicJsonDocument data(1024);
