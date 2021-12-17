@@ -30,13 +30,19 @@ func InitializeDatabase() {
 	// TODO: support other database backends other than sqlite
 	db, err = gorm.Open(sqlite.Open("data/garden.db"), &gorm.Config{})
 	if err != nil {
-		logrus.Fatalf("[db] unable to open database: %s", db)
+		logrus.Fatalf("[db] unable to open database: %s", err)
 	}
 
 	logrus.Debug("[db] connected to database")
 
 	if err := db.AutoMigrate(&util.GardenSystem{}, &util.GardenSystemInfo{}, &util.Reading{}, &util.Sensor{}); err != nil {
 		panic(err)
+	}
+
+	if err := db.AutoMigrate(&util.Configuration{}); err != nil {
+		panic(err)
+	} else {
+		initializeConfig()
 	}
 
 	logrus.Debug("[db] migrations completed successfully")

@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,6 +40,8 @@ func StartServer() {
 	// Short URLs to download firmware from. Added to save space in marshalled update commands.
 	r.HandleFunc("/fw82", DownloadFirmware).Methods("GET").Name("esp8266")
 	r.HandleFunc("/fw32", DownloadFirmware).Methods("GET").Name("esp32")
+
+	r.HandleFunc("/mesh/info", MeshInfoHandler).Methods("GET", "OPTIONS")
 
 	r.HandleFunc("/socket", websocket.WebSocketHandler)
 
@@ -119,24 +120,24 @@ func SendCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the user passes a hex encoded key, use that to encrypt the command.
-	if rKey := r.Form.Get("key"); len(rKey) == 64 {
+	// If the user wants to encrypt the command, do that now.
+	if r.Form.Has("encrypt") {
 		// Mesh messages are limited to 212 bytes in size. The nonce (12) + tag (16) drop that limit down to 184 bytes.
 		if len(command) > 184 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		// User is expected to pass a hex encoded key
-		key, err := hex.DecodeString(rKey)
+		config, err := db.GetConfiguration()
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			logrus.Warnf("[server] unable to get configuration: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		// Create the cipher.
 		// TODO: should be cached.
-		chacha, err := chacha20poly1305.New(key)
+		chacha, err := chacha20poly1305.New(config.ChaChaKey)
 		if err != nil {
 			logrus.Warnf("[crypto] unable to initialize cipher: %s", err)
 			w.WriteHeader(http.StatusInternalServerError)

@@ -227,11 +227,6 @@
               label="Channel"
               hint="The channel that the mesh controller is listening on."
             />
-
-            <v-alert color="warning darken-1">
-              TODO: Both of these fields need to be autofilled by the server and
-              displayed as dropdowns.
-            </v-alert>
           </v-form>
 
           <v-btn
@@ -314,6 +309,7 @@ import WizardCard from "@/components/WizardCard.vue";
 import "esp-web-tools";
 
 import { Dictionary } from "vue-router/types/router";
+import api from "@/plugins/api";
 
 export default Vue.extend({
   name: "SystemWizard",
@@ -331,7 +327,8 @@ export default Vue.extend({
         mqttUser: window.localStorage.getItem("mqttUser") || "",
         mqttPass: window.localStorage.getItem("mqttPass") || "",
         meshController: window.localStorage.getItem("meshController") || "",
-        meshChannel: window.localStorage.getItem("meshChannel") || ""
+        meshChannel: window.localStorage.getItem("meshChannel") || "",
+        meshKey: ""
       } as Dictionary<string>,
 
       snackbar: {
@@ -340,6 +337,18 @@ export default Vue.extend({
         text: ""
       }
     };
+  },
+  async mounted() {
+    api("/mesh/info").
+    then((r) => {
+      return r.json();
+    })
+    .then((res) => {
+      const c = this.$data.config;
+      c.meshController = res["Controller"];
+      c.meshChannel = res["Channel"];
+      c.meshKey = res["Key"];
+    })
   },
   computed: {
     secure() {
@@ -421,6 +430,8 @@ export default Vue.extend({
 
           break;
       }
+
+      serialized.MeshKey = this.$data.config.meshKey;
 
       return JSON.stringify(serialized);
     },

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/hmac"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
@@ -62,6 +63,16 @@ func SecureRandom(n int) []byte {
 	}
 
 	return buf
+}
+
+func DeriveKey(purpose, root string) []byte {
+	h := hmac.New(sha256.New, []byte(root))
+
+	if _, err := h.Write([]byte(purpose)); err != nil {
+		panic(err)
+	}
+
+	return h.Sum(nil)
 }
 
 func IdentifierToAddress(raw string) string {
