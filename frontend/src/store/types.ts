@@ -17,6 +17,7 @@ export type GardenSystem = {
   Announcement: GardenSystemInfo;
   LastReading: Reading;
   Readings: Array<Reading>;
+  UpdateStatus: OTAStatus;
 };
 
 export type GardenSystemInfo = {
@@ -52,4 +53,13 @@ export type Reading = {
   Error: boolean;
   Temperature?: number;
   Humidity?: number;
+};
+
+export type OTAStatus = {
+  LoggedAt?: Date;
+  Success: boolean;
+  Message: string;
+
+  // Time (in seconds) since the previous message.
+  Delta?: string;
 };

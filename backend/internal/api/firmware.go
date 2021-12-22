@@ -8,8 +8,12 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"time"
 
+	"github.com/ConfusedPolarBear/garden/internal/db"
 	"github.com/ConfusedPolarBear/garden/internal/firmware"
+	"github.com/ConfusedPolarBear/garden/internal/util"
+	"github.com/ConfusedPolarBear/garden/internal/websocket"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -20,6 +24,22 @@ func ManifestHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func DownloadFirmware(w http.ResponseWriter, r *http.Request) {
+	// If this is a garden system downloading this binary, broadcast the fact that it just started downloading.
+	id := r.Header.Get("System-ID")
+	if util.SystemIdentifierRegex.MatchString(id) {
+		system, err := db.GetSystem(id, false)
+		if err == nil {
+			system.UpdatedAt = time.Now()
+			system.UpdateStatus = util.OTAStatus{
+				Success: true,
+				Message: fmt.Sprintf("Backend: device %s started downloading update", id),
+			}
+			websocket.BroadcastWebsocketMessage("update", system)
+
+			// no need to call db.UpdateSystem() as UpdateStatus isn't stored persistently
+		}
+	}
+
 	// Test if this is a short URL handler.
 	name := mux.CurrentRoute(r).GetName()
 	if name == "esp8266" || name == "esp32" {

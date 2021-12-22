@@ -171,6 +171,10 @@ func handleMqttMessage(client, topic string, payload []byte) {
 			UpdatedAt:    time.Now(),
 			Identifier:   id,
 			Announcement: info,
+			UpdateStatus: util.OTAStatus{
+				Success: true,
+				Message: "Backend: device restarted",
+			},
 		}
 
 		if err := db.CreateSystem(system); err != nil {
@@ -342,6 +346,15 @@ func handleMqttMessage(client, topic string, payload []byte) {
 
 			// TODO: store & expose to the frontend
 			logrus.Printf("mesh stats for %s: %#v", client, stats)
+
+		} else if strings.HasSuffix(topic, "/ota") {
+			var status util.OTAStatus
+			if err := json.Unmarshal(payload, &status); err != nil {
+				logrus.Warnf("[mqtt] unable to unmarshal ota status report: %s", err)
+				return
+			}
+
+			system.UpdateStatus = status
 
 		} else {
 			logrus.Warnf("[mqtt] unhandled MQTT topic: %s", topic)

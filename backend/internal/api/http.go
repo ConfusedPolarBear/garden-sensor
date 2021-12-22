@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -184,6 +185,11 @@ func StartOTA(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	forceError := r.Form.Get("error")
+	if forceError == "host" {
+		host = "127.0.0.1:6969"
+	}
+
 	host = strings.TrimSuffix(host, "/")
 
 	// Read the latest firmware binary to get its length & checksum.
@@ -216,19 +222,53 @@ func StartOTA(w http.ResponseWriter, r *http.Request) {
 
 	ota.Checksum = util.MD5(contents)
 
-	pw := ota.PSK
-	ota.PSK = "[redacted]"
-	logrus.Debugf("[server] constructed OTA payload %#v", ota)
-	ota.PSK = pw
-
 	// Construct the short firmware download URL to use.
 	shortCode := "fw32"
 	if chipset == "esp8266" {
 		shortCode = "fw82"
 	}
 
+	if forceError == "url" {
+		shortCode = "dead"
+	}
+
 	ota.URL = fmt.Sprintf("%s/%s", host, shortCode)
+
+	// If a forced error was requested it, make it happen
+	if forceError != "" {
+		logrus.Errorf("[server] injecting %s error in update for %s!", forceError, id)
+
+		random := hex.EncodeToString(util.SecureRandom(16))
+
+		switch forceError {
+		case "ssid":
+			ota.SSID = random
+
+		case "psk":
+			ota.PSK = random
+
+		case "host", "url":
+			// handled above
+
+		case "size":
+			ota.Size /= 2
+
+		case "checksum":
+			ota.Checksum = random
+
+		default:
+			logrus.Errorf("[server] error type %s is unknown", forceError)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
 	logrus.Debugf("[server] set OTA url to %s (used host %s)", ota.URL, host)
+
+	pw := ota.PSK
+	ota.PSK = "[redacted]"
+	logrus.Debugf("[server] constructed OTA payload %#v", ota)
+	ota.PSK = pw
 
 	if err := sendCommand(id, string(util.Marshal(ota)), true); err != nil {
 		logrus.Warnf("[server] unable to initiate OTA for %s: %s", id, err)

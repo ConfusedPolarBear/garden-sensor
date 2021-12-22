@@ -160,3 +160,24 @@ String getIdentifier(bool includeColons) {
 
     return clientId;
 }
+
+int getMeshChannel() {
+    int meshChannel;
+
+    String rawChannel = ReadFile(FILE_MESH_CHANNEL);
+    if (rawChannel.length() > 0) {
+        meshChannel = rawChannel.toInt();
+
+        if (meshChannel <= 0) {
+            LOGW("mesh", "invalid mesh channel specified, defaulting to 1");
+            meshChannel = 1;
+        } else {
+            LOGD("mesh", "using mesh channel " + String(meshChannel));
+        }
+    } else {
+        LOGD("mesh", "using default channel of 1");
+        meshChannel = 1;
+    }
+
+    return meshChannel;
+}

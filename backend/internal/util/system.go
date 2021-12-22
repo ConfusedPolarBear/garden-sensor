@@ -22,6 +22,9 @@ type GardenSystem struct {
 
 	LastReading Reading `gorm:"-"`
 	Readings    []Reading
+
+	// Latest OTA status message received
+	UpdateStatus OTAStatus `gorm:"-"`
 }
 
 type GardenSystemInfo struct {
@@ -59,4 +62,9 @@ type Reading struct {
 	Error          bool
 	Temperature    float32
 	Humidity       float32
+}
+
+type OTAStatus struct {
+	Success  bool
+	Message string
 }

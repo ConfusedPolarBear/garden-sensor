@@ -10,7 +10,7 @@ void connectToBroker();
 void mqttReceiveCallback(const MQTT::Publish& pub);
 
 // Process MQTT messages.
-void processMqtt();
+void processMqtt(bool rebootIfDisconnected = true);
 
 // Publish a message over ESP-NOW or MQTT.
 bool publish(String data, String teleTopic = "data");

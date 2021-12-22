@@ -61,8 +61,8 @@ void mqttReceiveCallback(const MQTT::Publish& pub) {
     processCommand(payload);
 }
 
-void processMqtt() {
-    if (!mqtt.connected()) {
+void processMqtt(bool rebootIfDisconnected) {
+    if (!mqtt.connected() && rebootIfDisconnected) {
         LOGF("mqtt", "process() called but not connected");
     }
 
@@ -95,6 +95,10 @@ bool publish(String data, String teleTopic) {
 }
 
 bool publish(const JsonDocument& doc, const String topic) {
+    if (doc.overflowed()) {
+        LOGW("mqtt", "detected JSON document overflow");
+    }
+
     String json;
     serializeJson(doc, json);
     return publish(json, topic);

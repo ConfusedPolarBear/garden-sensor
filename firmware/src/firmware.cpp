@@ -59,21 +59,7 @@ void setup() {
     String mqttUser = ReadFile(FILE_MQTT_USER);
 
     meshController = ReadFile(FILE_MESH_CONTROLLER);
-
-    String rawChannel = ReadFile(FILE_MESH_CHANNEL);
-    if (rawChannel.length() > 0) {
-        meshChannel = rawChannel.toInt();
-
-        if (meshChannel <= 0) {
-            LOGW("mesh", "invalid mesh channel specified, defaulting to 1");
-            meshChannel = 1;
-        } else {
-            LOGD("mesh", "using mesh channel " + String(meshChannel));
-        }
-    } else {
-        LOGD("mesh", "using default channel of 1");
-        meshChannel = 1;
-    }
+    meshChannel = getMeshChannel();
 
     Serial << "Settings:" << endl;
     if (meshController.length() == 0) {
@@ -365,11 +351,11 @@ void processCommand(String command, bool secure) {
         }
 
         else if (command == "update") {
-            DynamicJsonDocument updateResult(100);
+            DynamicJsonDocument updateResult(200);
             updateResult["Success"] = false;
 
             if (!secure) {
-                updateResult["Message"] = "Update command sent insecurely";
+                updateResult["Message"] = "update command sent insecurely";
                 publish(updateResult, "ota");
                 return;
             }
@@ -379,7 +365,7 @@ void processCommand(String command, bool secure) {
             String psk = data["P"] | "";
 
             if (!data.containsKey("U") || !data.containsKey("L") || !data.containsKey("C")) {
-                updateResult["Message"] = "Url, Length, and Hash are required";
+                updateResult["Message"] = "url, length, and hash are required";
                 publish(updateResult, "ota");
                 return;
             }
@@ -390,7 +376,7 @@ void processCommand(String command, bool secure) {
 
             const size_t length = rawLength.toInt();
             if (length <= 32 * 1024) {
-                updateResult["Message"] = "Invalid new size for firmware binary";
+                updateResult["Message"] = "invalid new size for firmware binary";
                 publish(updateResult, "ota");
                 return;
             }
@@ -398,13 +384,15 @@ void processCommand(String command, bool secure) {
             // Tell the server we're going to start attempting an update. Use safeDelay() to ensure the message is sent
             // before the Wi-Fi connection is (probably) changed.
             updateResult["Success"] = true;
-            updateResult["Message"] = "Starting update";
+            updateResult["Message"] = "attempting to download update from " + url + " using network " + ssid;
             publish(updateResult, "ota");
             safeDelay(500);
 
             startUpdate(ssid, psk, url, length, checksum);
 
-            updateResult["Message"] = getUpdateMessage();
+            String m = getUpdateMessage();
+            LOGD("ota", "publishing failure with reason " + m);
+            updateResult["Message"] = m;
 
             if (isController) {
                 connectToWifi();
@@ -412,6 +400,7 @@ void processCommand(String command, bool secure) {
 
             safeDelay(500);
 
+            updateResult["Success"] = false;
             publish(updateResult, "ota");
 
             safeDelay(500);
@@ -522,6 +511,7 @@ void processCommand(String command, bool secure) {
 void safeDelay(const size_t time) {
     const size_t start = millis();
     while(millis() - start <= time) {
+        processMqtt(false);
         yield();
     }
 }

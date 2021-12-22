@@ -10,7 +10,7 @@
 
 #include <WiFiClient.h>
 
-String updateResult = "Unknown failure";
+String updateResult = "unknown failure";
 
 String getUpdateMessage() {
     LOGD("ota", "result from update is " + updateResult);
@@ -102,8 +102,7 @@ void startUpdate(String wifi, String psk, String url, size_t length, String chec
 
         if (WiFi.status() != WL_CONNECTED) {
             // If the connection attempt failed, reconnect to the main network (connection is a no-op if not controller).
-            // TODO: does this fuck with the mesh?
-            updateResult = "Failed to connect to Wi-Fi";
+            updateResult = "failed to connect to network " + wifi;
             goto fail;
         }
     } else {
@@ -165,6 +164,5 @@ void startUpdate(String wifi, String psk, String url, size_t length, String chec
     fail:
     LOGW("ota", "error: " + updateResult + " (" + String(Update.getError()) + ")");
 
-    #warning USE CORRECT MESH CHANNEL HERE
-    startAccessPoint(7);
+    startAccessPoint(getMeshChannel());
 }
