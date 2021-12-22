@@ -26,16 +26,15 @@
         <v-col lg cols="6">
           <h2>Update firmware</h2>
           <p>
-            Systems can only be updated over Wi-Fi. Specify the network name and
-            password of a network that this system should connect to in order to
-            download the new firmware. You must also specify the IP address and
-            port of the backend server on that network.
+            To update this system, specify a Wi-Fi network and password the
+            system can connect to with access to the backend server.
           </p>
 
           <p>
-            Systems that are downloading new firmware will disconnect from MQTT
-            and the mesh for up to two minutes. In the event of an error, the
-            system will restart itself without installing the new firmware.
+            Systems that are updating will not communicate with the backend
+            server or relay mesh messages for up to two minutes. In the event of
+            an error, the system will restart itself without installing the
+            update.
           </p>
 
           <v-form>
@@ -60,11 +59,47 @@
         </v-col>
       </v-row>
     </v-container>
+    <br />
+
     <v-expansion-panels>
       <v-expansion-panel>
-        <v-expansion-panel-header>Debug Info</v-expansion-panel-header>
+        <v-expansion-panel-header>
+          I want to update a system from a network without access to my backend
+          server
+        </v-expansion-panel-header>
         <v-expansion-panel-content>
-          <pre> {{ JSON.stringify(system, undefined, 2) }} </pre>
+          <span>
+            It is possible to update systems even if they are on a separate
+            network from the backend server. To download a firmware update,
+            systems make an HTTP GET request to either:
+          </span>
+
+          <ul>
+            <li>
+              <code>http://UPDATE_HOST/fw82</code> is the system is running on
+              an ESP8266, or
+            </li>
+            <li>
+              <code>http://UPDATE_HOST/fw32</code> is the system is running on
+              an ESP32
+            </li>
+          </ul>
+          <br />
+
+          <span>
+            Your HTTP server must:
+            <ol>
+              <li>
+                Allow unauthenticated HTTP access to <code>/fw82</code> and
+                <code>/fw32</code>
+              </li>
+              <li>Send a correct Content-Length header</li>
+            </ol>
+            <br />
+
+            If you have <code>python3</code> installed on your system, the
+            command <code>python3 -m http.server</code> works well.
+          </span>
         </v-expansion-panel-content>
       </v-expansion-panel>
     </v-expansion-panels>
@@ -109,7 +144,13 @@ export default Vue.extend({
         mutation.payload.Identifier === this.id
       ) {
         this.system = mutation.payload;
-        this.update.loading = false;
+        /* TODO: fix infinite spinner by:
+         *   creating an update log on this screen that defaults to "sent update command"
+         *   the backend can use a new property called UpdateStatus that it updates when a system:
+         *     publishes a message to tele/whatever/ota
+         *     makes a request to /fwNN with a system ID header
+         *     restarts with a new firmware version
+         */
       }
     },
     startUpdate() {
