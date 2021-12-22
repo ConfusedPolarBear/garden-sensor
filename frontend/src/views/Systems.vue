@@ -1,26 +1,26 @@
 <template>
   <v-container>
     <h1>Module List</h1>
-    <div class="module-list-container"> 
-    <v-row no-gutters class="search-bar">
-      <v-col>
-        <input v-model="searchQuery" placeholder="Search for a module">
-      </v-col>
-      <v-col :cols="1">
-        <v-icon class="magnify"> mdi-magnify </v-icon>
-      </v-col>
-    </v-row>
-    <div v-for="sys in resultQuery" :key="sys.Identifier">
-      <node-module
+    <div class="module-list-container">
+      <v-row no-gutters class="search-bar">
+        <v-col>
+          <input v-model="searchQuery" placeholder="Search for a module" />
+        </v-col>
+        <v-col :cols="1">
+          <v-icon class="magnify"> mdi-magnify </v-icon>
+        </v-col>
+      </v-row>
+      <div v-for="sys in resultQuery" :key="sys.Identifier">
+        <node-module
           moduleName="Node Module"
           :identifier="sys.Identifier"
           :isConnected="isConnected(sys.UpdatedAt)"
           :timestamp="age(sys.UpdatedAt)"
           :announcement="sys.Announcement"
         />
+      </div>
     </div>
-    </div>
-    <br/>
+    <br />
 
     <span>Send command to:</span>
     <br />
@@ -44,12 +44,6 @@
     >
       <v-icon>mdi-plus</v-icon>
     </v-btn>
-
-    <br />
-    <div style="max-width: 300px">
-      <h2>Temporary settings menu</h2>
-      <v-switch v-model="fahrenheit" label="Use Farenheit" />
-    </div>
 
     <command-dialog
       @command="sendCommandHandler"
@@ -101,9 +95,7 @@ export default Vue.extend({
         }
       ],
       searchQuery: "",
-      systems: Array<GardenSystem>(),
       showSystemTypes: false,
-      fahrenheit: (window.localStorage.getItem("units") ?? "C") == "F",
 
       command: {
         id: "",
@@ -113,19 +105,10 @@ export default Vue.extend({
   },
   // actions
   methods: {
-    load(): void {
-      // Load all initial systems.
-      api("/systems");
-
-      // Subscribe to the Vuex store for future updates.
-      this.$store.subscribe(this.onMutation);
-    },
     onMutation(mutation: MutationPayload, state: any) {
       if (mutation.type !== "register" && mutation.type !== "update") {
         return;
       }
-
-      this.systems = state.systems;
 
       // When a new system is registered, check if any emulators are present. If there are any, display system types.
       // Don't bother to check if this isn't a new system registering itself or if we are already showing type info.
@@ -134,7 +117,7 @@ export default Vue.extend({
       }
 
       this.showSystemTypes = false;
-      for (const sys of this.systems) {
+      for (const sys of state.systems) {
         if (this.isEmulator(sys)) {
           this.showSystemTypes = true;
           break;
@@ -181,15 +164,6 @@ export default Vue.extend({
     isReadingValid(reading: number): boolean {
       return reading != 32768;
     },
-    temp(reading: number): string {
-      const units = this.fahrenheit ? "F" : "C";
-
-      if (this.fahrenheit) {
-        reading = (9 / 5) * reading + 32;
-      }
-
-      return `${reading.toFixed(2)} °${units}`;
-    },
     sendCommand(id: string) {
       this.command.id = id;
       this.command.show = true;
@@ -211,30 +185,26 @@ export default Vue.extend({
     }
   },
   created() {
-    this.load();
+    // Subscribe to the Vuex store for future updates. Updates happen when the server sends a WS message.
+    this.$store.subscribe(this.onMutation);
 
     // Periodically force the page to update in order to keep the last seen timestamps fresh for all systems.
     setInterval(() => {
       this.$forceUpdate();
     }, 5 * 1000);
   },
-  watch: {
-    fahrenheit() {
-      window.localStorage.setItem("units", this.fahrenheit ? "F" : "C");
-    }
-  },
   computed: {
     // search for node modules and return the result
     resultQuery() {
       if (!this.searchQuery) {
-        return this.$data.systems;
+        return this.$store.state.systems;
       }
-      
-      return this.$data.systems.filter((item: GardenSystem) => {
+
+      return this.$store.state.systems.filter((item: GardenSystem) => {
         return this.searchQuery
           .toLowerCase()
           .split(" ")
-          .every(v => item.Identifier.toLowerCase().includes(v));
+          .every((v) => item.Identifier.toLowerCase().includes(v));
       });
     }
   }
@@ -242,9 +212,9 @@ export default Vue.extend({
 </script>
 
 <style scoped lang="scss">
-  h1 {
-    font-size: 3em;
-  }
+h1 {
+  font-size: 3em;
+}
 
 .search-bar {
   .magnify {
