@@ -6,13 +6,11 @@ String clientId, baseTopic;
 bool everConnected = false;
 
 void setupTopics() {
-    clientId = WiFi.softAPmacAddress();
-    clientId.replace(":", "");
-
+    clientId = getIdentifier();
 	baseTopic = "garden/module/" + clientId;
 }
 
-void connectToBroker(String host, String user, String pass) {
+void connectToBroker() {
     if (mqtt.connected()) {
         return;
     }
@@ -22,6 +20,10 @@ void connectToBroker(String host, String user, String pass) {
     }
 
     setupTopics();
+
+    String host = ReadFile(FILE_MQTT_HOST);
+    String user = ReadFile(FILE_MQTT_USER);
+    String pass = ReadFile(FILE_MQTT_PASS);
 
     // Log the connection attempt and try to connect
     bool auth = user.length() > 0;
@@ -59,8 +61,8 @@ void mqttReceiveCallback(const MQTT::Publish& pub) {
     processCommand(payload);
 }
 
-void processMqtt() {
-    if (!mqtt.connected()) {
+void processMqtt(bool rebootIfDisconnected) {
+    if (!mqtt.connected() && rebootIfDisconnected) {
         LOGF("mqtt", "process() called but not connected");
     }
 
@@ -90,6 +92,16 @@ bool publish(String data, String teleTopic) {
     }
 
     return publishMesh(data, topic);
+}
+
+bool publish(const JsonDocument& doc, const String topic) {
+    if (doc.overflowed()) {
+        LOGW("mqtt", "detected JSON document overflow");
+    }
+
+    String json;
+    serializeJson(doc, json);
+    return publish(json, topic);
 }
 
 String getClientId() {

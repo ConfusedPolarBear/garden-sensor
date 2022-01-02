@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <queue>
 #include <vector>
 
 #include <Arduino.h>
@@ -24,6 +25,7 @@
 #include <mesh.h>
 #include <mqtt.h>
 #include <networking.h>
+#include <ota.h>
 #include <sensors.h>
 
 // ========== Paths to configuration files ==========
@@ -39,14 +41,27 @@
 #define FILE_MESH_CHANNEL    "/meshChannel"
 #define FILE_MESH_KEY        "/meshKey"
 
+#define FILE_SECURE_MODE     "/secure"
+
 // ========== Command handling ==========
 // Checks if the Serial connection has a command. If it does, handle it.
 void parseSerial();
 
 // Process a sent command.
-void processCommand(String command);
+void processCommand(String command, bool secure = false);
+
+void queueCommand(String command);
 
 // ========== Utility functions ==========
 uint32_t secureRandom();
 String secureRandomNonce();
 void memzero(void* ptr, size_t size);
+void printMemoryStatistics(String msg);
+
+#define BUILTIN_LED 2
+
+// Flashes the onboard LED.
+void flashLed();
+
+// Delays for the provided amount of time without blocking background processes on the ESP.
+void safeDelay(const size_t time);

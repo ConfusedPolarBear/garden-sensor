@@ -191,7 +191,7 @@ bool publishMesh(String message, String topic) {
 
     float l = payload.length();
     uint32_t correlation = secureRandom();
-    uint8_t total = ceil(l / 244.0);        // 244 bytes is the maximum payload (after the header is added).
+    uint8_t total = ceil(l / 212.0);        // 212 bytes is the maximum payload (after the header + HMAC is added).
 
     LOGD("mesh", "sending len:" + String(payload.length()) + ", cor:" + String(correlation, HEX) + ", tot:" + String(total));
     LOGD("mesh", "payload is '" + payload + "'");
@@ -360,10 +360,20 @@ void meshReceiveCallbackHandler(const uint8_t* mac, const uint8_t* buf, int leng
 
         // If this is a directed or broadcast command, handle it.
         if (isDirect || isBroadcast) {
+            // Strip off the mesh protocol header.
             payload = payload.substring(6, payload.length());
 
-            LOGD("mesh", "handling command '" + payload + "'");
-            processCommand(payload);
+            // If this is an encrypted payload, strip off the destination MAC address as well.
+            if (payload.charAt(0) != '{') {
+                LOGD("mesh", "handling encrypted payload");
+                payload = payload.substring(4+12, payload.length());
+
+            } else {
+                LOGD("mesh", "handling unencrypted payload");
+            }
+
+            LOGD("mesh", "queuing command '" + payload + "'");
+            queueCommand(payload);
         }
 
     } else {

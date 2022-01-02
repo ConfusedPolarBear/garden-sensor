@@ -1,6 +1,6 @@
 #include <logger.h>
 
-void logInternal(String level, String tag, String message) {
+void logAdvanced(String level, String tag, String message) {
     String color = "";
     String colorReset = "";
 
@@ -8,7 +8,11 @@ void logInternal(String level, String tag, String message) {
     color = "\033[1;";
     colorReset = "\033[0m";
 
-    if (level == "W") {
+    if (level == "I") {
+        color += "36m";     // blue
+    }
+
+    else if (level == "W") {
         color += "33m";     // yellow
     }
     
@@ -26,19 +30,16 @@ void logInternal(String level, String tag, String message) {
     Serial << color << level << tag << ": " << message << colorReset << endl;
 }
 
-void LOGD(String tag, String message) {
-    #ifndef DEBUG
-    return;
-    #endif
-
-    logInternal("D", tag, message);
+void LOGI(String tag, String message) {
+    logAdvanced("I", tag, message);
 }
 
 void LOGW(String tag, String message) {
-    logInternal("W", tag, message);
+    logAdvanced("W", tag, message);
 }
 
 void LOGF(String tag, String message) {
-    logInternal("F", tag, message);
+    logAdvanced("F", tag, message);
     ESP.restart();
+    while(1) { yield(); }
 }

@@ -13,7 +13,7 @@ var SystemIdentifierRegex regexp.Regexp = *regexp.MustCompile("^[a-fA-F0-9]{12}$
 
 type GardenSystem struct {
 	Identifier string `gorm:"primaryKey;notNull"`
-	Name string
+	Name       string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	DeletedAt  time.Time
@@ -22,6 +22,9 @@ type GardenSystem struct {
 
 	LastReading Reading `gorm:"-"`
 	Readings    []Reading
+
+	// Latest OTA status message received
+	UpdateStatus OTAStatus `gorm:"-"`
 }
 
 type GardenSystemInfo struct {
@@ -42,6 +45,9 @@ type GardenSystemInfo struct {
 	CoreVersion string
 	SdkVersion  string
 
+	// The chipset this system uses. Currently either "ESP8266" or "ESP32".
+	Chipset string
+
 	FilesystemUsedSize  int
 	FilesystemTotalSize int
 
@@ -56,4 +62,9 @@ type Reading struct {
 	Error          bool
 	Temperature    float32
 	Humidity       float32
+}
+
+type OTAStatus struct {
+	Success  bool
+	Message string
 }

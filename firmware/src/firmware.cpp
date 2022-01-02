@@ -1,11 +1,12 @@
 #include <firmware.h>
 
-String wifiSsid, wifiPass;
-String mqttHost, mqttUser, mqttPass;
-
 bool isController;
 String meshController;
 int meshChannel;
+
+std::queue<String> commandQueue;
+
+uint32_t lastStack = 3 * 1024;
 
 void setup() {
     Wire.begin(4, 5);  // data, clock
@@ -13,13 +14,18 @@ void setup() {
     Serial.begin(115200);
     Serial.setTimeout(500);     // timeout for readStringUntil()
 
+    #ifdef USE_BUILTIN_LED
+    pinMode(BUILTIN_LED, OUTPUT);     // wemos d1 minis have the builtin LED on D4 (GPIO2) *active low*.
+    digitalWrite(BUILTIN_LED, HIGH);
+    #endif
+
     Serial << endl << endl;
 
     Mount();
 
     WiFi.persistent(false);
     WiFi.mode(WIFI_AP_STA);
-    Serial << "Mesh MAC address: " << WiFi.softAPmacAddress() << endl;
+    Serial << "Mesh MAC address: " << getIdentifier(true) << endl;
 
     // Check if the system has been configured
     bool configured = false;
@@ -43,33 +49,17 @@ void setup() {
                 continue;
             }
 
-            processCommand(Serial.readStringUntil('\n'));
+            processCommand(Serial.readStringUntil('\n'), true);
         }
     }
 
     // Configuration is valid, load and display it for validation
-    wifiSsid = ReadFile(FILE_WIFI_SSID);
-    wifiPass = ReadFile(FILE_WIFI_PASS);
-    mqttHost = ReadFile(FILE_MQTT_HOST);
-    mqttUser = ReadFile(FILE_MQTT_USER);
-    mqttPass = ReadFile(FILE_MQTT_PASS);
+    String wifiSsid = ReadFile(FILE_WIFI_SSID);
+    String mqttHost = ReadFile(FILE_MQTT_HOST);
+    String mqttUser = ReadFile(FILE_MQTT_USER);
 
     meshController = ReadFile(FILE_MESH_CONTROLLER);
-
-    String rawChannel = ReadFile(FILE_MESH_CHANNEL);
-    if (rawChannel.length() > 0) {
-        meshChannel = rawChannel.toInt();
-
-        if (meshChannel <= 0) {
-            LOGW("mesh", "invalid mesh channel specified, defaulting to 1");
-            meshChannel = 1;
-        } else {
-            LOGD("mesh", "using mesh channel " + String(meshChannel));
-        }
-    } else {
-        LOGD("mesh", "using default channel of 1");
-        meshChannel = 1;
-    }
+    meshChannel = getMeshChannel();
 
     Serial << "Settings:" << endl;
     if (meshController.length() == 0) {
@@ -100,20 +90,7 @@ void setup() {
     }
 
     if (isController) {
-        // Attempt to connect to the provided Wi-Fi network
-        WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
-
-        Serial << "Connecting to Wi-Fi";
-        while (WiFi.status() != WL_CONNECTED)
-        {
-            Serial << ".";
-            processCommand(Serial.readStringUntil('\n'));
-        }
-        Serial << endl;
-
-        Serial << "IP address: " << WiFi.localIP() << endl;
-
-        connectToBroker(mqttHost, mqttUser, mqttPass);
+        connectToWifi();
 
         // Since ESP-NOW is very unreliable if the channels don't match, force them to match.
         meshChannel = WiFi.channel();
@@ -145,14 +122,41 @@ void setup() {
     sendDiscoveryMessage(isController);
 }
 
-bool sentTest = false;
+void printMemoryStatistics(String location) {
+    #ifdef ESP8266
+    uint32_t current = ESP.getFreeContStack();
+
+    LOGD("app", "memory stats at " + location);
+    LOGD("app", "free heap " + String(ESP.getFreeHeap()));
+
+    uint32_t decrease = lastStack - current;
+    String msg = "stack free " + String(current);
+    if (decrease > 0) {
+        msg.concat(" (decreased by " + String(decrease) + ")");
+    }
+
+    if (current <= 512) {
+        LOGW("app", msg);
+    } else {
+        LOGD("app", msg);
+    }
+
+    lastStack = current;
+    #endif
+}
+
 long lastPublish = 0;
 void loop() {
-    // Process any Serial commands
-    processCommand(Serial.readStringUntil('\n'));
+    // Process outstanding commands
+    processCommand(Serial.readStringUntil('\n'), true);
+
+    if (!commandQueue.empty()) {
+        processCommand(commandQueue.front());
+        commandQueue.pop();
+    }
 
     if (isController) {
-        connectToBroker(mqttHost, mqttUser, mqttPass);      // will only reconnect if needed
+        connectToBroker();      // will only reconnect if needed
         processMqtt();
     }
 
@@ -163,9 +167,7 @@ void loop() {
     // Note that delay() *cannot* be used here (or anywhere else in the loop function) because if a delay is active
     //    when an ESP-NOW message arrives, the message won't be processed by the system.
     if (millis() - lastPublish >= 60 * 1000) {
-        String strReading;
-
-        StaticJsonDocument<100> mesh;
+        DynamicJsonDocument mesh(100);;
         meshStatistics stats = getStatistics();
 
         mesh["SE"] = stats.sent;
@@ -173,10 +175,7 @@ void loop() {
         mesh["DL"] = stats.droppedLength;
         mesh["DA"] = stats.droppedAuth;
         mesh["AC"] = stats.accepted;
-        serializeJson(mesh, strReading);
-        publish(strReading, "mesh");
-        
-        strReading = "";
+        publish(mesh, "mesh");
 
         lastPublish = millis();
 
@@ -186,29 +185,81 @@ void loop() {
 
         sensorData reading = getSensorData();
 
-        StaticJsonDocument<100> json;
+        DynamicJsonDocument json(100);
         json["Error"] = reading.error;
         json["Temperature"] = reading.temperature;
         json["Humidity"] = reading.humidity;
-
-        serializeJson(json, strReading);
-
-        publish(strReading);
+        publish(json, "data");
     }
 }
 
-void processCommand(String command) {
+void queueCommand(String command) {
+    if (command.startsWith("e")) {
+        LOGD("app", "queued encrypted command");
+    } else {
+        LOGD("app", "queued command " + command);
+    }
+
+    commandQueue.push(command);
+}
+
+void processCommand(String command, bool secure) {
     bool changed = false;
 
     if (command.length() == 0) {
         return;
     }
 
+    // printMemoryStatistics("top of processCommand");
+
     command.replace("\r", "");
+
+    // Encrypted commands start with "e" & need to be decrypted before processing. Format: e || NONCE || TAG || CIPHERTEXT
+    // where "||" denotes concatenation.
+    
+    // Check that the command is at least 31 bytes since the encryption has a fixed overhead of 30 bytes.
+    if (command.charAt(0) == 'e' && command.length() > 30) {
+        LOGD("cmnd", "command is encrypted");
+
+        size_t len = command.length();
+        if (len - 12 - 16 >= 250) {
+            LOGW("cmnd", "ciphertext too long");
+            return;
+        }
+
+        // Nonce is 12 bytes & auth tag is 16 bytes.
+        String nonce = command.substring(1, 13);
+        String tag = command.substring(13, 29);
+        command = command.substring(29, len);
+        len = command.length();
+
+        void* plaintext = calloc(len, sizeof(char));
+
+        if (!decrypt(command.c_str(), len, nonce.c_str(), tag.c_str(), (char*)plaintext)) {
+            free(plaintext);
+            return;
+        }
+
+        LOGD("crypto", "successfully decrypted command");
+
+        command = "";
+        for (size_t i = 0; i < len; i++) {
+            command += ((char*)plaintext)[i];
+        }
+
+        free(plaintext);
+
+        secure = true;
+    }
+
+    // Ignore MAC addresses that are prefixed to the JSON.
+    if (command.indexOf("dst-") == 0) {
+        command = command.substring(16);
+    }
 
     // Try to deserialize the input as JSON
     LOGD("cmnd", "deserializing '" + command + "'");
-    DynamicJsonDocument data(3 * 1024);
+    DynamicJsonDocument data(1024);
     DeserializationError error = deserializeJson(data, command);
 
     // Log success or failure
@@ -242,6 +293,22 @@ void processCommand(String command) {
             if (payload.length() == 0) {
                 LOGW("app", "the payload property is required");
                 return;
+            }
+
+            // If the payload has the prefix "h", it is hex encoded. Decode it before sending it.
+            if (payload.charAt(0) == 'h') {
+                LOGD("app", "decoding hex mesh message before transmitting");
+                payload += "00";
+
+                size_t len = payload.length();
+                String newPayload = "";
+                for (size_t i = 1; i < len; i += 2) {
+                    String current = payload.substring(i, i+2);
+                    char chr = (char)(int)strtol(current.c_str(), NULL, 16);
+                    newPayload += chr;
+                }
+
+                payload = newPayload;
             }
 
             publishMesh(payload, "");
@@ -281,6 +348,64 @@ void processCommand(String command) {
             #else
             ESP.deepSleep(period * 1e6, RF_DISABLED);
             #endif
+        }
+
+        else if (command == "update") {
+            DynamicJsonDocument updateResult(200);
+            updateResult["Success"] = false;
+
+            if (!secure) {
+                updateResult["Message"] = "update command sent insecurely";
+                publish(updateResult, "ota");
+                return;
+            }
+
+            // SSID & PSK are optional but break startUpdate() if they're null, so set to empty strings if not provided.
+            String ssid = data["S"] | "";
+            String psk = data["P"] | "";
+
+            if (!data.containsKey("U") || !data.containsKey("L") || !data.containsKey("C")) {
+                updateResult["Message"] = "url, length, and hash are required";
+                publish(updateResult, "ota");
+                return;
+            }
+
+            String url = data["U"];
+            String rawLength = data["L"];
+            String checksum = data["C"];
+
+            const size_t length = rawLength.toInt();
+            if (length <= 32 * 1024) {
+                updateResult["Message"] = "invalid new size for firmware binary";
+                publish(updateResult, "ota");
+                return;
+            }
+
+            // Tell the server we're going to start attempting an update. Use safeDelay() to ensure the message is sent
+            // before the Wi-Fi connection is (probably) changed.
+            updateResult["Success"] = true;
+            updateResult["Message"] = "attempting to download update from " + url + " using network " + ssid;
+            publish(updateResult, "ota");
+            safeDelay(500);
+
+            startUpdate(ssid, psk, url, length, checksum);
+
+            String m = getUpdateMessage();
+            LOGD("ota", "publishing failure with reason " + m);
+            updateResult["Message"] = m;
+
+            if (isController) {
+                connectToWifi();
+            }
+
+            safeDelay(500);
+
+            updateResult["Success"] = false;
+            publish(updateResult, "ota");
+
+            safeDelay(500);
+
+            LOGF("ota", "restarting to recover from failed update");
         }
 
         else {
@@ -379,4 +504,24 @@ void processCommand(String command) {
     } else {
         LOGD("cmnd", "not configured");
     }
+
+    // printMemoryStatistics("returning from processCommand");
+}
+
+void safeDelay(const size_t time) {
+    const size_t start = millis();
+    while(millis() - start <= time) {
+        processMqtt(false);
+        yield();
+    }
+}
+
+void flashLed() {
+    #ifndef USE_BUILTIN_LED
+    return;
+    #endif
+
+    digitalWrite(BUILTIN_LED, LOW);
+    delay(50);
+    digitalWrite(BUILTIN_LED, HIGH);
 }

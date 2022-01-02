@@ -11,8 +11,7 @@ void startAccessPoint(int channel) {
     // Since the PSK is randomized every time it is started, this would wear out the flash very quickly.
     WiFi.persistent(false);
 
-    String apSsid = "m-" + WiFi.softAPmacAddress();
-    apSsid.replace(":", "");
+    String apSsid = "m-" + getIdentifier();
     apSsid.toLowerCase();
 
     String apPass = secureRandomNonce();
@@ -24,6 +23,30 @@ void startAccessPoint(int channel) {
 void stopAccessPoint() {
     LOGD("ap", "Stopping access point");
     WiFi.softAPdisconnect(false);
+}
+
+void connectToWifi() {
+    String wifiSsid = ReadFile(FILE_WIFI_SSID);
+    String wifiPass = ReadFile(FILE_WIFI_PASS);
+
+    if (wifiSsid == "") {
+        return;
+    }
+
+    // Attempt to connect to the provided Wi-Fi network
+    WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
+
+    Serial << "Connecting to Wi-Fi";
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        Serial << ".";
+        processCommand(Serial.readStringUntil('\n'), true);
+    }
+    Serial << endl;
+
+    Serial << "IP address: " << WiFi.localIP() << endl;
+
+    connectToBroker();
 }
 
 void startNetworkScan() {
@@ -88,10 +111,7 @@ void processNetworkScan() {
         net["RSSI"] = i.RSSI;
     }
 
-    String serialized;
-    serializeJson(doc, serialized);
-
-    publish(serialized, "networks");
+    publish(doc, "networks");
 }
 
 #warning pass a string vector with discovered sensors
@@ -102,6 +122,9 @@ void sendDiscoveryMessage(bool useMqtt) {
     #ifdef ESP8266
     info["RR"] = ESP.getResetReason();
     info["CV"] = ESP.getCoreVersion();
+    info["TY"] = "ESP8266";
+    #else
+    info["TY"] = "ESP32";
     #endif
 
     info["SV"] = ESP.getSdkVersion();
@@ -125,8 +148,36 @@ void sendDiscoveryMessage(bool useMqtt) {
     sensors.add("temperature");
     sensors.add("humidity");
 
-    String discovery;
-    serializeJson(info, discovery);
+    publish(info, "discovery");
+}
 
-    publish(discovery, "discovery");
+String getIdentifier(bool includeColons) {
+    String clientId = WiFi.softAPmacAddress();
+
+    if (!includeColons) {
+        clientId.replace(":", "");
+    }
+
+    return clientId;
+}
+
+int getMeshChannel() {
+    int meshChannel;
+
+    String rawChannel = ReadFile(FILE_MESH_CHANNEL);
+    if (rawChannel.length() > 0) {
+        meshChannel = rawChannel.toInt();
+
+        if (meshChannel <= 0) {
+            LOGW("mesh", "invalid mesh channel specified, defaulting to 1");
+            meshChannel = 1;
+        } else {
+            LOGD("mesh", "using mesh channel " + String(meshChannel));
+        }
+    } else {
+        LOGD("mesh", "using default channel of 1");
+        meshChannel = 1;
+    }
+
+    return meshChannel;
 }

@@ -10,3 +10,6 @@ uint8_t* hmac(const uint8_t* data, size_t dataLength);
 
 // Compare two HMACs in constant time.
 bool hmacCompare(const uint8_t* lhs, const uint8_t* rhs);
+
+// Decrypts data encrypted with ChaCha20-Poly1305. Returns true when ciphertext is authentic & decrypts successfully.
+bool decrypt(const char* cipher, const size_t cipherLength, const char* nonce, const char* tag, char* output);

@@ -1,12 +1,15 @@
 package api
 
 import (
-	"encoding/json"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path"
+	"strings"
 
 	"github.com/ConfusedPolarBear/garden/internal/db"
-	"github.com/ConfusedPolarBear/garden/internal/mqtt"
 	"github.com/ConfusedPolarBear/garden/internal/util"
 	"github.com/ConfusedPolarBear/garden/internal/websocket"
 
@@ -25,10 +28,17 @@ func StartServer() {
 	r.HandleFunc("/systems", GetSystems).Methods("GET")
 	r.HandleFunc("/system/{id}", GetSystem).Methods("GET")
 	r.HandleFunc("/system/delete/{id}", DeleteSystem).Methods("POST")
-	r.HandleFunc("/system/command/{id}", SendCommand).Methods("POST", "OPTIONS")
+	r.HandleFunc("/system/command/{id}", SendCommandHandler).Methods("POST", "OPTIONS")
+	r.HandleFunc("/system/update/{id}", StartOTA).Methods("POST", "OPTIONS")
 
 	r.HandleFunc("/firmware/manifest.json", ManifestHandler).Methods("GET")
 	r.HandleFunc("/firmware/{board}/{file}", DownloadFirmware).Methods("GET")
+
+	// Short URLs to download firmware from. Added to save space in marshalled update commands.
+	r.HandleFunc("/fw82", DownloadFirmware).Methods("GET").Name("esp8266")
+	r.HandleFunc("/fw32", DownloadFirmware).Methods("GET").Name("esp32")
+
+	r.HandleFunc("/mesh/info", MeshInfoHandler).Methods("GET", "OPTIONS")
 
 	r.HandleFunc("/socket", websocket.WebSocketHandler)
 
@@ -88,16 +98,7 @@ func DeleteSystem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func SendCommand(w http.ResponseWriter, r *http.Request) {
-	// Command sent to a coordinator to publish an arbitrary mesh message.
-	type meshPublishCommand struct {
-		// Command as seen by the coordinator. Must be "Publish".
-		Command string
-
-		// Payload to publish. Must be deserializable as JSON.
-		Payload string
-	}
-
+func SendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := getId(w, r)
 	if err != nil {
 		return
@@ -116,68 +117,162 @@ func SendCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the system
-	isMesh := false
-	if id != "FFFFFFFFFFFF" {
-		// If this is not a broadcast message, lookup the individual system to send the message to
-		system, err := db.GetSystem(id, false)
-		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	encrypt := r.Form.Has("encrypt")
 
-		isMesh = system.Announcement.IsMesh
-	} else {
-		isMesh = true
+	if err := sendCommand(id, command, encrypt); err != nil {
+		logrus.Warnf("[server] unable to send command: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+func StartOTA(w http.ResponseWriter, r *http.Request) {
+	type otaCommand struct {
+		Command  string
+		SSID     string `json:"S"`
+		PSK      string `json:"P"`
+		URL      string `json:"U"`
+		Size     int64  `json:"L"`
+		Checksum string `json:"C"`
 	}
 
-	logrus.Debugf("[server] sending command to %s: %s", id, command)
+	ota := otaCommand{Command: "Update"}
 
-	mqttDest := id
-	mqttPayload := command
+	// Get the system that is going to be updated & validate its information
+	id, err := getId(w, r)
+	if err != nil {
+		return
+	}
 
-	// If this system is connected over MQTT, send the raw command
-	if isMesh {
-		// Mesh connected systems are controlled by sending a command (MQTT) to the coordinator who will rebroadcast it (ESP-NOW)
-		logrus.Debugf("[server] system %s networking mode is mesh", id)
+	system, err := db.GetSystem(id, false)
+	if err != nil {
+		logrus.Warnf("[server] unable to get system with id %s: %s", id, err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
-		// Lookup the coordinator for this system.
-		coordinator, err := db.GetCoordinator()
-		if err != nil {
-			logrus.Errorf("[server] unable to find coordinator: %s", err)
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	chipset := strings.ToLower(system.Announcement.Chipset)
+	if chipset != "esp8266" && chipset != "esp32" {
+		logrus.Warnf("[server] system %s has unknown chipset %s", id, chipset)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-		mqttDest = coordinator.Identifier
+	// Get the Wi-Fi SSID & PSK
+	if err := r.ParseForm(); err != nil {
+		logrus.Warnf("[server] unable to parse ota form: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
-		// Construct the mesh payload
-		// {"Command":"Publish", "Payload": "{'D':'dst-123457890AB','Command':'Ping'}"}
+	ota.SSID, ota.PSK = r.Form.Get("ssid"), r.Form.Get("psk")
 
-		// Unmarshal the command in order to add the destination key to it
-		var rawCommand map[string]interface{}
-		if err := json.Unmarshal([]byte(command), &rawCommand); err != nil {
-			logrus.Errorf("[server] unable to unmarshal command as JSON: %s", err)
+	if ota.SSID == "" || len(ota.SSID) > 32 || ota.PSK == "" || len(ota.PSK) > 64 {
+		logrus.Warn("[server] ssid or psk are invalid")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Get the server (if specified), otherwise fall back to the host
+	host := r.Form.Get("host")
+	if host == "" {
+		host = r.Host
+		logrus.Warn("[server] no host specified for OTA, falling back to HTTP host.")
+
+		if strings.HasPrefix(host, "127.0.0.1") {
+			logrus.Warnf("[server] HTTP host is %s, which is inaccessible for systems to update from.", host)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-
-		rawCommand["D"] = fmt.Sprintf("dst-%s", id)
-
-		// Remarshal the command in coordinator format.
-		meshCommand := util.Marshal(meshPublishCommand{
-			Command: "Publish",
-			Payload: string(util.Marshal(rawCommand)),
-		})
-
-		mqttPayload = string(meshCommand)
-
-	} else {
-		logrus.Debug("[server] system %s networking mode is wifi")
 	}
 
-	logrus.Debugf("[server] commanding \"%s\"", mqttDest)
-	logrus.Debugf("[server] mqtt payload is \"%s\"", mqttPayload)
+	forceError := r.Form.Get("error")
+	if forceError == "host" {
+		host = "127.0.0.1:6969"
+	}
 
-	mqtt.Publish(fmt.Sprintf("garden/module/%s/cmnd", mqttDest), mqttPayload)
+	host = strings.TrimSuffix(host, "/")
+
+	// Read the latest firmware binary to get its length & checksum.
+	fw := path.Join("data/firmware/", chipset, "firmware.bin")
+
+	f, err := os.Open(fw)
+	if err != nil {
+		logrus.Warnf("[server] unable to open firmware for %s (chipset %s) at %s: %s", id, chipset, fw, err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	defer f.Close()
+
+	if stat, err := f.Stat(); err != nil {
+		logrus.Warnf("[server] unable to stat firmware for %s (chipset %s) at %s: %s", id, chipset, fw, err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else {
+		ota.Size = stat.Size()
+	}
+
+	// Calculate the checksum with MD5 (terrible, but it's the best algorithm natively supported).
+	contents, err := io.ReadAll(f)
+	if err != nil {
+		logrus.Warnf("[server] unable to read firmware for %s (chipset %s) at %s: %s", id, chipset, fw, err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	ota.Checksum = util.MD5(contents)
+
+	// Construct the short firmware download URL to use.
+	shortCode := "fw32"
+	if chipset == "esp8266" {
+		shortCode = "fw82"
+	}
+
+	if forceError == "url" {
+		shortCode = "dead"
+	}
+
+	ota.URL = fmt.Sprintf("%s/%s", host, shortCode)
+
+	// If a forced error was requested it, make it happen
+	if forceError != "" {
+		logrus.Errorf("[server] injecting %s error in update for %s!", forceError, id)
+
+		random := hex.EncodeToString(util.SecureRandom(16))
+
+		switch forceError {
+		case "ssid":
+			ota.SSID = random
+
+		case "psk":
+			ota.PSK = random
+
+		case "host", "url":
+			// handled above
+
+		case "size":
+			ota.Size /= 2
+
+		case "checksum":
+			ota.Checksum = random
+
+		default:
+			logrus.Errorf("[server] error type %s is unknown", forceError)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	logrus.Debugf("[server] set OTA url to %s (used host %s)", ota.URL, host)
+
+	pw := ota.PSK
+	ota.PSK = "[redacted]"
+	logrus.Debugf("[server] constructed OTA payload %#v", ota)
+	ota.PSK = pw
+
+	if err := sendCommand(id, string(util.Marshal(ota)), true); err != nil {
+		logrus.Warnf("[server] unable to initiate OTA for %s: %s", id, err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 }

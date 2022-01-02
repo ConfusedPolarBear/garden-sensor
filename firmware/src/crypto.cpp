@@ -1,19 +1,21 @@
 #include "firmware.h"
-
-#ifdef ESP32
-#include "mbedtls/md.h"
-#else
-#include "Crypto.h"
-#endif
+#include "ChaChaPoly.h"
+#include "SHA256.h"
 
 String _hmacKey = "";
+uint8_t* _symKey;
 
 void loadKey() {
+    // The HMAC key is the raw HMAC file contents.
     _hmacKey = ReadFile(FILE_MESH_KEY);
 
     if (_hmacKey == "") {
         LOGF("crypto", "mesh key is not set");
     }
+
+    // Derive the symmetric encryption key from the raw HMAC one since separating cryptographic keys is a good thing to do.
+    String symData = "chacha-symmetric-key";
+    _symKey = hmac((const uint8_t*)symData.c_str(), symData.length());
 }
 
 String arrayToString(const uint8_t* raw, size_t length) {
@@ -30,7 +32,6 @@ String arrayToString(const uint8_t* raw, size_t length) {
     return result;
 }
 
-#ifdef ESP32
 uint8_t* hmac(const uint8_t* data, size_t dataLength) {
     if (_hmacKey == "") { loadKey(); }
 
@@ -39,51 +40,13 @@ uint8_t* hmac(const uint8_t* data, size_t dataLength) {
         LOGF("crypto", "unable to allocate memory");
     }
 
-    mbedtls_md_context_t ctx;
-    mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-
-    // Initialize the mbed TLS context and set it up for HMAC mode.
-    mbedtls_md_init(&ctx);
-
-    if (mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1) != 0) {
-        LOGF("crypto", "setup failed");
-    }
-
-    // Setup the HMAC key.
-    if (mbedtls_md_hmac_starts(&ctx, (const unsigned char*)_hmacKey.c_str(), _hmacKey.length()) != 0) {
-        LOGF("crypto", "key write failed");
-    }
-
-    // Write the data to the started HMAC.
-    if (mbedtls_md_hmac_update(&ctx, data, dataLength) != 0) {
-        LOGF("crypto", "payload write failed");
-    }
-
-    // Finish and free the HMAC.
-    if (mbedtls_md_hmac_finish(&ctx, (uint8_t*)result) != 0) {
-        LOGF("crypto", "finalization failed");
-    }
-
-    mbedtls_md_free(&ctx);
+    SHA256* hmac = new SHA256();
+    hmac->resetHMAC(_hmacKey.c_str(), _hmacKey.length());
+    hmac->update(data, dataLength);
+    hmac->finalizeHMAC(_hmacKey.c_str(), _hmacKey.length(), result, 32);
 
     return (uint8_t*)result;
 }
-#else
-uint8_t* hmac(const uint8_t* data, const size_t dataLength) {
-    using namespace experimental::crypto;
-
-    if (_hmacKey == "") { loadKey(); }
-
-    void* result = calloc(32, sizeof(uint8_t));
-    if (result == NULL) {
-        LOGF("crypto", "unable to allocate memory");
-    }
-
-    SHA256::hmac(data, dataLength, _hmacKey.c_str(), _hmacKey.length(), result, 32);
-
-    return (uint8_t*)result;
-}
-#endif
 
 bool hmacCompare(const uint8_t* lhs, const uint8_t* rhs) {
     int result = 0;
@@ -92,4 +55,37 @@ bool hmacCompare(const uint8_t* lhs, const uint8_t* rhs) {
     }
 
     return result == 0;
+}
+
+bool decrypt(const char* cipher, const size_t cipherLength, const char* nonce, const char* tag, char* output) {
+    if (_hmacKey == "") { loadKey(); }
+
+    ChaChaPoly* chacha = new ChaChaPoly();
+
+    if (!chacha->setKey(_symKey, 32)) {
+        LOGF("crypto", "symmetric key setup failed");
+    }
+
+    // LOGD("crypto", "setting \"iv\" to " + arrayToString((const uint8_t*)nonce, 12));
+    if (!chacha->setIV((const uint8_t*)nonce, 12)) {
+        LOGF("crypto", "symmetric nonce setup failed");
+    }
+
+    // LOGD("crypto", "decrypting ciphertext " + arrayToString((const uint8_t*)cipher, cipherLength));
+    chacha->decrypt((uint8_t*)output, (const uint8_t*)cipher, cipherLength);
+
+    // LOGD("crypto", "tag is " + arrayToString((const uint8_t*)tag, 16));
+    bool okay = chacha->checkTag(tag, 16);
+    if (!okay) {
+        LOGW("crypto", "message authentication failed");
+
+        // Zeroize the output if the tag is wrong because ciphertext that fails authentication should never ever be released
+        // to callers ever but the library does so anyway.
+        memzero(output, cipherLength);
+    }
+
+    chacha->clear();
+    delete chacha;
+
+    return okay;
 }
